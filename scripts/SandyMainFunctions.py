@@ -5,7 +5,7 @@ def SandyCovarianceRetrieval(energy_grid, nuclide, mt_Number, data_library, temp
     Retrieves the covariance data using Sandy and saves it to a CSV file. Optionally produces a plot of the covariance data as well.
 
     Parameters:
-        energy_grid (list or nd_array): Desired energy bounds of the covariance data being retrieved [in eV]
+        energy_grid (list): Desired energy bounds of the covariance data being retrieved [in eV]
 
         nuclide (str): Name of the nuclide whose covariance data will be retrieved
         Formatted without hyphens (e.g. He4 instead of He-4)
@@ -56,7 +56,7 @@ def SandyCovarianceRetrieval(energy_grid, nuclide, mt_Number, data_library, temp
     'Create a plot of the covariance data if chosen'
 
     if plotting_Flag:
-        plot_filename = plotCovariance(covariance_data = convariance_data, 
+        plot_filename = plotCovariance(covariance_data = covariance_data, 
                                        energy_grid = energy_grid, 
                                        nuclide = nuclide, 
                                        mt_Number = mt_Number, 
@@ -64,11 +64,11 @@ def SandyCovarianceRetrieval(energy_grid, nuclide, mt_Number, data_library, temp
 
     'Save the covariance data to a file'
 
-    saveCovarianceFile(covariance_data = covariance_data, 
-                       energy_grid = energy_grid, 
-                       nuclide = nuclide, 
-                       mt_Number = mt_Number, 
-                       flag_String = flag_String)
+    csv_filename = saveCovarianceFile(covariance_data = covariance_data, 
+                                      energy_grid = energy_grid, 
+                                      nuclide = nuclide, 
+                                      mt_Number = mt_Number, 
+                                      flag_String = flag_String)
 
     if plotting_Flag:
         return csv_filename, plot_filename
@@ -77,13 +77,13 @@ def SandyCovarianceRetrieval(energy_grid, nuclide, mt_Number, data_library, temp
 
     print('Covariance Retrieval Process Complete')
 
-SandyCovarianceRetrieval(energy_grid = [1E-4, 10, 10000],
+SandyCovarianceRetrieval(energy_grid = ([1E-4, 10, 200, 1000, 10000]),
                          nuclide = 'Be9',
                          mt_Number = 2,
                          data_library = 'endfb_80',
                          temperature = 294,
                          relative_Flag = False,
-                         plotting_Flag = False)
+                         plotting_Flag = True)
 
 
 

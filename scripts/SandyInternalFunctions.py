@@ -46,7 +46,7 @@ def retrieveCovarianceData(energy_grid, nuclide, mt_Number, data_library, nuclid
 
     Parameters:
 
-        energy_grid (list or nd_array): Desired energy bounds of the retrieved covariance data [in eV]
+        energy_grid (list): Desired energy bounds of the retrieved covariance data [in eV]
 
         nuclide (str): Nuclide whose covariance data will be retrieved
             Written without using hyphens (ex. H1, Mo98, U235, etc.)
@@ -78,15 +78,6 @@ def retrieveCovarianceData(energy_grid, nuclide, mt_Number, data_library, nuclid
     import os
     import sandy
 
-
-    'Ensure that the energy grid and mt number are formatted as Numpy arrays'
-
-    if type(energy_grid) != 'nd_array':
-        energy_grid = np.array(energy_grid)
-
-    if type(mt_Number) != 'nd_array':
-        mt_Number = np.array(mt_Number)
-
     'Set the appropriate data type name for use in the final filenames'
 
     if relative_Flag:
@@ -99,36 +90,38 @@ def retrieveCovarianceData(energy_grid, nuclide, mt_Number, data_library, nuclid
 
     errorr = sandy.get_endf6_file(data_library, 
                                 "xs", 
-                                nuclide_number).get_errorr(ek = energy_grid,
+                                nuclide_number).get_errorr(err= 0.1,
                                                            temperature = temperature,
-                                                           errorr_kws = dict(err = 0.1, 
+                                                           errorr_kws = dict(ek = energy_grid, 
                                                            nubar = True,
                                                            mubar = True,
                                                            chi = True,
                                                            xs = True,
                                                            relative = relative_Flag),
-                                                           groupr_kws = dict(ef = energy_grid))
+                                                           groupr_kws = dict(ek = energy_grid))
 
     'Select the correct MF file based upon the requested MT number'
     'Currently not configured to retrieve mubar (angular distribution) data'
     
     'Nu-Related Cov Data'
-    if (mt_Number in [452, 455, 456]) == True:
-        cov = errorr['errorr31'].get_cov(mts = mtNumber)
+    if ([mt_Number] in [452, 455, 456]) == True:
+        cov = errorr['errorr31'].get_cov(mts = [mt_Number])
 
     'Fission Spectrum-Related Cov Data'
-    if (mt_Number in [1018]) == True:
-        cov = errorr['errorr35'].get_cov(mts = mtNumber)
+    if ([mt_Number] in [1018]) == True:
+        cov = errorr['errorr35'].get_cov(mts = [mt_Number])
 
     'General XS Cov Data'
-    if (mt_Number not in [452, 455, 456]) and (mt_Number not in [1018]):
-        cov = errorr['errorr33'].get_cov(mts = mtNumber)
+    if ([mt_Number] not in [452, 455, 456]) and ([mt_Number] not in [1018]):
+        cov = errorr['errorr33'].get_cov(mts = [mt_Number])
 
     'Save the covariance data as a separate variable and output the data''s shape to assist with debugging'
 
-    covariance_data = cov.data_library
+    covariance_data = cov.data
 
-    print('The shape of the retrieved covariance data is: ' + str(covariance_data.shape[0]) + ' by ' +str(convariance_data.shape[1]))
+    print('The shape of the retrieved covariance data is: ' + str(covariance_data.shape[0]) + ' by ' +str(covariance_data.shape[1]))
+
+    print(covariance_data.shape)
 
     return covariance_data, flag_String
 
@@ -139,7 +132,7 @@ def plotCovariance(covariance_data, energy_grid, nuclide, mt_Number, flag_String
     Parameters:
         covariance_data (list or nd_array): Covariance data retrieved using Sandy's interfacing with NJOY
 
-        energy_grid (list or nd_array): Grid used to define the energy bounds of the retrieved covariance data
+        energy_grid (list): Grid used to define the energy bounds of the retrieved covariance data
 
         nuclide (str): Name of the nuclide whose covariance data was retrieved
 
@@ -174,7 +167,7 @@ def saveCovarianceFile(covariance_data, energy_grid, nuclide, mt_Number, flag_St
     Parameters:
         covariance_data (list of nd_array): Covariance data retrieved using Sandy's interfacing with NJOY
 
-        energy_grid (list or nd_array): Grid used to define the energy bounds of the retrieved covariance data
+        energy_grid (list): Grid used to define the energy bounds of the retrieved covariance data
 
         nuclide (str): Name of the nuclide whose covariance data was retrieved
 
@@ -195,7 +188,7 @@ def saveCovarianceFile(covariance_data, energy_grid, nuclide, mt_Number, flag_St
 
     df = pd.read_csv('intermediate_dataframe.csv', skiprows = 2)
 
-    csv_filename = 'covarianceMatrix_' + str(len(energy_grid)) + 'Groups_' + str(nuclide) + 'MT' + str(mt_Number) + '_' + str(flag_String) + '.csv'
+    csv_filename = 'covarianceMatrix_' + str(len(energy_grid)) + 'Groups_' + str(nuclide) + '_MT_' + str(mt_Number) + '_' + str(flag_String) + '.csv'
 
     df.to_csv(csv_filename, index= False, header = False)
 
