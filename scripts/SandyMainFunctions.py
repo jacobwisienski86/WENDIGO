@@ -77,13 +77,5 @@ def SandyCovarianceRetrieval(energy_grid, nuclide, mt_Number, data_library, temp
 
     print('Covariance Retrieval Process Complete')
 
-SandyCovarianceRetrieval(energy_grid = ([1E-4, 10, 200, 1000, 10000]),
-                         nuclide = 'Be9',
-                         mt_Number = 2,
-                         data_library = 'endfb_80',
-                         temperature = 294,
-                         relative_Flag = False,
-                         plotting_Flag = True)
-
 
 

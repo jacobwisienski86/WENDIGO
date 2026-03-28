@@ -121,8 +121,6 @@ def retrieveCovarianceData(energy_grid, nuclide, mt_Number, data_library, nuclid
 
     print('The shape of the retrieved covariance data is: ' + str(covariance_data.shape[0]) + ' by ' +str(covariance_data.shape[1]))
 
-    print(covariance_data.shape)
-
     return covariance_data, flag_String
 
 def plotCovariance(covariance_data, energy_grid, nuclide, mt_Number, flag_String):
