@@ -98,9 +98,7 @@ def createUnperturbedLibrary(neutron_sublibrary_path,
         for file in os.listdir(neutron_sublibrary_path):
             if nuclide in file:
                 xs_filename = neutron_sublibrary_path + '/' + file
-            else:
-                continue
-    unperturbed_library.register_file(xs_filename)
+        unperturbed_library.register_file(xs_filename)
 
     return unperturbed_library
     
@@ -182,6 +180,7 @@ def createPerturbedXML(unperturbed_library,
     import os
     import openmc
     from pathlib import Path
+    import copy
 
     'Retrieve the starting directory'
 
@@ -209,7 +208,7 @@ def createPerturbedXML(unperturbed_library,
 
         'Set a perturbed xs library using the unperturbed library as a template'
 
-        perturbed_xs_library = unperturbed_library
+        perturbed_xs_library = copy.deepcopy(unperturbed_library)
 
         'Convert perturbed ACE file to .h5 format'
 
