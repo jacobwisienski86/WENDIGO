@@ -1,4 +1,0 @@
-'Functions related to functionality with OpenMC for WENDIGO'
-
-import openmc 
-

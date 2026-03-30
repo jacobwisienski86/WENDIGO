@@ -395,4 +395,3 @@ def GenerateRandomSamplingACEFiles(frendy_Path,
     else:
         print('All ACE files generated successfully and are located in: ' + str(ace_files_directory))
         return ace_files_directory
-

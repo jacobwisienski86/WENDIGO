@@ -63,7 +63,9 @@ def createNumbers(directory_number):
 
 
 def createUnperturbedLibrary(neutron_sublibrary_path, 
-                             unperturbed_nuclide_list):
+                             unperturbed_nuclide_list,
+                             thermal_scatter_sublibrary_path,
+                             unperturbed_TSL_list):
     """
     Creates a template data library containing the unperturbed neutron xs data
     Assumes the unperturbed data is formatted in accordance with the .h5
@@ -76,6 +78,13 @@ def createUnperturbedLibrary(neutron_sublibrary_path,
         unperturbed_nuclide_list (list): List of strings containing the names of 
         nuclides whose neutron xs data won't be perturbed within the model 
         of investigation
+
+        unperturbed_TSL_list (list): List containing a list of strings with the names of each of the thermal scattering libraries to 
+        use within the model of interest.
+        For example, when analyzing BeO this may be ['c_Be_in_BeO', 'c_O_in_BeO']
+
+        thermal_scatter_sublibrary_path (str): Path to the directory where the unperturbed .h5-formatted cross section data is stored.
+        May be the same as neutron_sublibrary_path depending on where cross section data was downloaded from.
 
     Results:
         unperturbed_library (openmc.data.DataLibrary): Data library containing
@@ -98,13 +107,20 @@ def createUnperturbedLibrary(neutron_sublibrary_path,
         for file in os.listdir(neutron_sublibrary_path):
             if nuclide in file:
                 xs_filename = neutron_sublibrary_path + '/' + file
-        unperturbed_library.register_file(xs_filename)
+                unperturbed_library.register_file(xs_filename)
+
+    for thermal_scatter in unperturbed_TSL_list:
+        for file in os.listdir(thermal_scatter_sublibrary_path):
+            if thermal_scatter in file:
+                tsl_filename = thermal_scatter_sublibrary_path + '/' + file
+        unperturbed_library.register_file(tsl_filename)
 
     return unperturbed_library
     
 def createModelFolders(directory_number, 
                        perturbed_nuclide, 
-                       model_name):
+                       model_name,
+                       perturbation_type):
 
     """
     Create folders to store the perturbed cross_sections.xml files in
@@ -115,6 +131,8 @@ def createModelFolders(directory_number,
         perturbed_nuclide (str): Name of the nuclide whose cross section data is being perturbed
 
         model_name (str): Model name under investigation
+
+        perturbation_type (str): Type of perturbation performed for the xs data of interest
 
     Results:
         perturbed_model_top_directory_name (str): Name of the directory where the folders containing the perturbed cross_sections.xml files are located
@@ -129,7 +147,7 @@ def createModelFolders(directory_number,
 
     'Set the name of the directory where the folders will be located'
 
-    perturbed_model_top_directory_name = model_name + '_' + str(perturbed_nuclide) + '_PerturbedModels'
+    perturbed_model_top_directory_name = model_name + '_' + str(perturbed_nuclide) + '_' + str(perturbation_type) + 'PerturbedModels'
 
     'Remove the perturbed model directory if it already exists'
 

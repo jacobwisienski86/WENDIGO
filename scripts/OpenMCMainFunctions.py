@@ -2,9 +2,12 @@
 
 def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list, 
                                          neutron_sublibrary_path, 
+                                         unperturbed_TSL_list,
+                                         thermal_scatter_sublibrary_path,
                                          perturbed_ACE_folder_path,
                                          perturbed_nuclide = '', 
-                                         model_name = ''):
+                                         model_name = '',
+                                         perturbation_type = ''):
 
     """
     Creates a directory with numbered folders, each containing a cross_sections.xml file created using perturbed cross section data
@@ -14,6 +17,13 @@ def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list,
 
         neutron_sublibrary_path (str): Path to the directory where the unperturbed .h5-formatted cross section data is stored
 
+        unperturbed_TSL_list (list): List containing a list of strings with the names of each of the thermal scattering libraries to 
+        use within the model of interest.
+        For example, when analyzing BeO this may be ['c_Be_in_BeO', 'c_O_in_BeO']
+
+        thermal_scatter_sublibrary_path (str): Path to the directory where the unperturbed .h5-formatted cross section data is stored.
+        May be the same as neutron_sublibrary_path depending on where cross section data was downloaded from.
+
         perturbed_ACE_folder_path (str): Path to the directory where the folders containing the perturbed ACE files are located
 
         perturbed_nuclide (str): Optional name of the nuclide whose cross section data is being perturbed
@@ -21,6 +31,10 @@ def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list,
         Default value: Empty string ('')
 
         model_name (str): Optional name of the model under investigation
+        Only used to create more descriptive names for the directory containing the folders with the perturbed cross_sections.xml files
+        Default value: Empty string ('')
+
+        perturbation_type (str): Optional input to state if the models are using direct perturbation or random sampling ACE files
         Only used to create more descriptive names for the directory containing the folders with the perturbed cross_sections.xml files
         Default value: Empty string ('')
 
@@ -36,6 +50,8 @@ def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list,
                                          createModelFolders,
                                          createPerturbedXML)
 
+    from pathlib import Path
+
     'Count the number of directories within the perturbed ACE file folder'
 
     directory_number = countDirectories(perturbed_ACE_folder_path = perturbed_ACE_folder_path)
@@ -47,13 +63,16 @@ def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list,
     'Iterate through each unperturbed nuclide to create a base library that the perturbed files can be added onto'
 
     unperturbed_library = createUnperturbedLibrary(neutron_sublibrary_path = neutron_sublibrary_path,
-                                                   unperturbed_nuclide_list = unperturbed_nuclide_list)
+                                                   unperturbed_nuclide_list = unperturbed_nuclide_list,
+                                                   unperturbed_TSL_list = unperturbed_TSL_list,
+                                                   thermal_scatter_sublibrary_path = thermal_scatter_sublibrary_path)
 
     'Generate folders to store each perturbed cross_sections.xml file in'
 
     perturbed_model_top_directory_name, perturbed_model_folder_list = createModelFolders(directory_number = directory_number,
                                                                                          perturbed_nuclide = perturbed_nuclide,
-                                                                                         model_name = model_name)
+                                                                                         model_name = model_name,
+                                                                                         perturbation_type = perturbation_type)
 
     'Create the cross_sections.xml files using the perturbed ACE files'
 
@@ -66,8 +85,6 @@ def buildPerturbedCrossSectionsLibraries(unperturbed_nuclide_list,
     print('All perturbed cross_sections.xml files created. The folders containing them are located in: ' +str(perturbed_model_top_directory_name))
 
     return perturbed_model_top_directory_name
-
-
 
 
                      
