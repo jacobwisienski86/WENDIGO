@@ -56,7 +56,7 @@ def build_perturbed_cross_sections_libraries(
 
     'Import needed functions'
 
-    from OpenMCInternalFunctions import (
+    from openmc_internal_functions import (
         count_directories,
         create_numbers,
         create_unperturbed_library,

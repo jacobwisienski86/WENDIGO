@@ -3,7 +3,7 @@
 # the workflow.
 
 
-def retrieveNuclideInformation(nuclide):
+def retrieve_nuclide_information(nuclide):
     """
     Retrieves the mass number and ZZZ number for a nuclide based on a
     user-input string.
@@ -18,7 +18,7 @@ def retrieveNuclideInformation(nuclide):
     """
 
     import numpy as np
-    from ZNumberLibrary import nuclide_ZZZs
+    from z_number_library import nuclide_ZZZs
 
     'Grab the nuclide\'s element and mass number from the input'
 
@@ -45,7 +45,7 @@ def retrieveNuclideInformation(nuclide):
     return nuclide_number
 
 
-def retrieveCovarianceData(
+def retrieve_covariance_data(
     energy_grid,
     nuclide,
     mt_Number,
@@ -143,7 +143,7 @@ def retrieveCovarianceData(
     return covariance_data, flag_String
 
 
-def plotCovariance(covariance_data, energy_grid, nuclide, mt_Number, flag_String):
+def plot_covariance(covariance_data, energy_grid, nuclide, mt_Number, flag_String):
     """
     Plots the covariance data.
 
@@ -189,7 +189,7 @@ def plotCovariance(covariance_data, energy_grid, nuclide, mt_Number, flag_String
     return plot_filename
 
 
-def saveCovarianceFile(covariance_data, energy_grid, nuclide, mt_Number, flag_String):
+def save_covariance_file(covariance_data, energy_grid, nuclide, mt_Number, flag_String):
     """
     Save the covariance data to an initial CSV, reload to allow for formatting,
     and then save again in the finalized form.

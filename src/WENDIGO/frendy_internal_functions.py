@@ -5,7 +5,7 @@
 # Functions related to generating unperturbed ACE files
 
 
-def formatENDFEvaluation(endf_Path):
+def format_endf_evaluation(endf_Path):
     """
     Formats the raw ENDF evaluation into a .dat format needed for use by FRENDY.
 
@@ -32,7 +32,7 @@ def formatENDFEvaluation(endf_Path):
     return endf_file_dat
 
 
-def writeUpgradeLines(energy_grid):
+def write_upgrade_lines(energy_grid):
     """
     Writes optional lines to include within the unperturbed ACE file generation
     input file to add more energy grid points.
@@ -107,7 +107,7 @@ def writeUpgradeLines(energy_grid):
     return upgrade_lines
 
 
-def createUnperturbedACEGenerationInput(
+def create_unperturbed_ace_generation_input(
     frendy_Path,
     nuclide,
     endf_file_dat,
@@ -176,7 +176,7 @@ def createUnperturbedACEGenerationInput(
     'Section that performs the energy grid upgrade'
 
     if upgrade_Flag:
-        upgrade_lines = writeUpgradeLines(energy_grid=energy_grid)
+        upgrade_lines = write_upgrade_lines(energy_grid=energy_grid)
         ace_file_lines.append(upgrade_lines)
 
     'Write the ACE file generation input'
@@ -197,7 +197,7 @@ def createUnperturbedACEGenerationInput(
 # Functions related to generating direct perturbation ACE files
 
 
-def createDirectPerturbationInputs(
+def create_direct_perturbation_inputs(
     nuclide,
     mt_Number,
     energy_grid,
@@ -284,7 +284,7 @@ def createDirectPerturbationInputs(
 
     return perturbation_list_lines, perturbation_input_folder_name
 
-def createDirectPerturbationList(
+def create_direct_perturbation_list(
     nuclide,
     mt_Number,
     perturbation_list_lines
@@ -318,7 +318,7 @@ def createDirectPerturbationList(
     return perturbation_list_filename
 
 
-def createDirectPerturbationCommandFile(
+def create_direct_perturbation_command_file(
     frendy_Path,
     perturbation_list_filename,
     unperturbed_ACE_file_path
@@ -388,7 +388,7 @@ def createDirectPerturbationCommandFile(
     return create_ace_files_input_filename
 
 
-def directPerturbationFolderCheck(
+def direct_perturbation_folder_check(
     perturbed_ace_folder_path,
     energy_grid
 ):
@@ -433,7 +433,7 @@ def directPerturbationFolderCheck(
 # Functions related to generating random sampling ACE files
 
 
-def createRandomSamplingToolExecutionFile(
+def create_random_sampling_tool_execution_file(
     executable_directory,
     random_sampling_tool_directory
 ):
@@ -492,7 +492,7 @@ def createRandomSamplingToolExecutionFile(
 
     return execution_filename
 
-def createRandomSamplingToolInputs(
+def create_random_sampling_tool_inputs(
     sample_size,
     seed,
     relative_covariance_matrix_path,
@@ -576,7 +576,7 @@ def createRandomSamplingToolInputs(
     return sample_filename
 
 
-def generateRandomSamplingFactors(
+def generate_random_sampling_factors(
     execution_filename,
     random_sampling_tool_directory,
     nuclide,
@@ -619,7 +619,7 @@ def generateRandomSamplingFactors(
         os.remove(execution_filename)
 
 
-def moveRandomSamplingFiles(
+def move_random_sampling_files(
     random_sampling_tool_directory,
     nuclide,
     frendy_Path,
@@ -673,7 +673,7 @@ def moveRandomSamplingFiles(
 
     return new_inputs_directory_name
 
-def createRandomSamplingPertList(
+def create_random_sampling_pert_list(
     nuclide,
     mt_Number,
     new_inputs_directory_name,
@@ -738,7 +738,7 @@ def createRandomSamplingPertList(
     return perturbation_list_filename
 
 
-def createRandomSamplingACEDirectory(
+def create_random_sampling_ace_directory(
     frendy_Path,
     nuclide,
     mt_Number,
@@ -791,7 +791,7 @@ def createRandomSamplingACEDirectory(
     return ace_files_directory
 
 
-def createRandomSamplingACEExecutionFile(
+def create_random_sampling_ace_execution_file(
     frendy_Path,
     ace_files_directory,
     nuclide,
@@ -873,7 +873,7 @@ def createRandomSamplingACEExecutionFile(
     return create_ace_files_input_filename
 
 
-def randomSamplingFolderCheck(
+def random_sampling_folder_check(
     sample_size,
     ace_files_directory
 ):

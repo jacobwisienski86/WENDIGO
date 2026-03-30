@@ -1,7 +1,7 @@
 # Set of functions related to the workflow that make use of FRENDY
 
 
-def GenerateUnperturbedNeutronACEFile(
+def generate_unperturbed_neutron_ace_file(
     frendy_Path,
     endf_Path,
     temperature,
@@ -36,8 +36,8 @@ def GenerateUnperturbedNeutronACEFile(
 
     import os
     from FRENDYInternalFunctions import (
-        formatENDFEvaluation,
-        createUnperturbedACEGenerationInput
+        format_endf_evaluation,
+        create_unperturbed_ace_generation_input
     )
 
     if energy_grid is None:
@@ -45,11 +45,11 @@ def GenerateUnperturbedNeutronACEFile(
 
     'Format the endf file into a .dat format'
 
-    endf_file_dat = formatENDFEvaluation(endf_Path=endf_Path)
+    endf_file_dat = format_endf_evaluation(endf_Path=endf_Path)
 
     'Write the input file for the ACE file generation'
 
-    ace_file_gen_input_filename = createUnperturbedACEGenerationInput(
+    ace_file_gen_input_filename = create_unperturbed_ace_generation_input(
         frendy_Path=frendy_Path,
         nuclide=nuclide,
         endf_file_dat=endf_file_dat,
@@ -113,7 +113,7 @@ def GenerateUnperturbedNeutronACEFile(
     return output_file_path
 
 
-def GenerateDirectPerturbationACEFiles(
+def generate_direct_perturbation_ace_files(
     frendy_Path,
     unperturbed_ACE_file_path,
     energy_grid,
@@ -149,10 +149,10 @@ def GenerateDirectPerturbationACEFiles(
     import os
     import shutil
     from FRENDYInternalFunctions import (
-        createDirectPerturbationInputs,
-        createDirectPerturbationList,
-        createDirectPerturbationCommandFile,
-        directPerturbationFolderCheck
+        create_direct_perturbation_inputs,
+        create_direct_perturbation_list,
+        create_direct_perturbation_command_file,
+        direct_perturbation_folder_check
     )
 
     'Store the initial directory to return to after creating the ACE files'
@@ -181,7 +181,7 @@ def GenerateDirectPerturbationACEFiles(
     (
         perturbation_list_lines,
         perturbation_input_folder_name
-    ) = createDirectPerturbationInputs(
+    ) = create_direct_perturbation_inputs(
         nuclide=nuclide,
         mt_Number=mt_Number,
         energy_grid=energy_grid,
@@ -190,7 +190,7 @@ def GenerateDirectPerturbationACEFiles(
 
     'Create a list of the direct perturbation input files'
 
-    perturbation_list_filename = createDirectPerturbationList(
+    perturbation_list_filename = create_direct_perturbation_list(
         nuclide=nuclide,
         mt_Number=mt_Number,
         perturbation_list_lines=perturbation_list_lines
@@ -198,7 +198,7 @@ def GenerateDirectPerturbationACEFiles(
 
     'Create the execution file for the direct perturbations'
 
-    create_ace_files_input_filename = createDirectPerturbationCommandFile(
+    create_ace_files_input_filename = create_direct_perturbation_command_file(
         frendy_Path=frendy_Path,
         perturbation_list_filename=perturbation_list_filename,
         unperturbed_ACE_file_path=unperturbed_ACE_file_path
@@ -211,7 +211,7 @@ def GenerateDirectPerturbationACEFiles(
 
     'Check if all of the files were created successfully'
 
-    file_failure_flag = directPerturbationFolderCheck(
+    file_failure_flag = direct_perturbation_folder_check(
         perturbed_ace_folder_path=perturbed_ace_folder_path,
         energy_grid=energy_grid
     )
@@ -240,7 +240,7 @@ def GenerateDirectPerturbationACEFiles(
         )
         return perturbed_ace_folder_path
 
-def GenerateRandomSamplingACEFiles(
+def generate_random_sampling_ace_files(
     frendy_Path,
     relative_covariance_matrix_path,
     unperturbed_ACE_file_path,
@@ -283,15 +283,15 @@ def GenerateRandomSamplingACEFiles(
 
     import os
     import shutil
-    from FRENDYInternalFunctions import (
-        createRandomSamplingToolExecutionFile,
-        createRandomSamplingToolInputs,
-        generateRandomSamplingFactors,
-        moveRandomSamplingFiles,
-        createRandomSamplingPertList,
-        createRandomSamplingACEDirectory,
-        createRandomSamplingACEExecutionFile,
-        randomSamplingFolderCheck
+    from frendy_internal_functions import (
+        create_random_sampling_tool_execution_file,
+        create_random_sampling_tool_inputs,
+        generate_random_sampling_factors,
+        move_random_sampling_files,
+        create_random_sampling_pert_list,
+        create_random_sampling_ace_directory,
+        create_random_sampling_ace_execution_file,
+        random_sampling_folder_check
     )
 
     'Grab the starting directory to return to as need be'
@@ -307,14 +307,14 @@ def GenerateRandomSamplingACEFiles(
 
     'Create the file used to execute the commands for generating the random sampling perturbation coefficients'
 
-    execution_filename = createRandomSamplingToolExecutionFile(
+    execution_filename = create_random_sampling_tool_execution_file(
         executable_directory=executable_directory,
         random_sampling_tool_directory=random_sampling_tool_directory
     )
 
     'Create random sampling tool inputs'
 
-    sample_filename = createRandomSamplingToolInputs(
+    sample_filename = create_random_sampling_tool_inputs(
         sample_size=sample_size,
         seed=seed,
         relative_covariance_matrix_path=relative_covariance_matrix_path,
@@ -325,7 +325,7 @@ def GenerateRandomSamplingACEFiles(
 
     'Generate the randomly sampled perturbation factors'
 
-    generateRandomSamplingFactors(
+    generate_random_sampling_factors(
         execution_filename=execution_filename,
         random_sampling_tool_directory=random_sampling_tool_directory,
         nuclide=nuclide,
@@ -333,12 +333,10 @@ def GenerateRandomSamplingACEFiles(
         cleanup_Flag=cleanup_Flag
     )
 
-    (
-        "Move the randomly sampled perturbation factors to the main FRENDY "
-        "directory, and rename the associated folder"
-    )
+    'Move the randomly sampled perturbation factors to the main FRENDY'
+    'directory, and rename the associated folder'
 
-    new_inputs_directory_name = moveRandomSamplingFiles(
+    new_inputs_directory_name = move_random_sampling_files(
         random_sampling_tool_directory=random_sampling_tool_directory,
         nuclide=nuclide,
         frendy_Path=frendy_Path,
@@ -351,19 +349,18 @@ def GenerateRandomSamplingACEFiles(
 
     'Generate a file with a list of the random sampling inputs'
 
-    perturbation_list_filename = createRandomSamplingPertList(
+    perturbation_list_filename = create_random_sampling_pert_list(
         nuclide=nuclide,
         mt_Number=mt_Number,
         new_inputs_directory_name=new_inputs_directory_name,
         sample_size=sample_size
     )
 
-    (
-        "Create a directory to store the random sampling ACE files, and move "
-        "the inputs and perturbation list into it"
-    )
+    
+    'Create a directory to store the random sampling ACE files, and move '
+    'the inputs and perturbation list into it'
 
-    ace_files_directory = createRandomSamplingACEDirectory(
+    ace_files_directory = create_random_sampling_ace_directory(
         frendy_Path=frendy_Path,
         nuclide=nuclide,
         mt_Number=mt_Number,
@@ -377,7 +374,7 @@ def GenerateRandomSamplingACEFiles(
 
     'Create the file with the commands to create the ACE files'
 
-    create_ace_files_input_filename = createRandomSamplingACEExecutionFile(
+    create_ace_files_input_filename = create_random_sampling_ace_execution_file(
         frendy_Path=frendy_Path,
         ace_files_directory=ace_files_directory,
         nuclide=nuclide,
@@ -392,7 +389,7 @@ def GenerateRandomSamplingACEFiles(
 
     'Check if all of the ACE files were created properly'
 
-    file_failure_flag = randomSamplingFolderCheck(
+    file_failure_flag = random_sampling_folder_check(
         sample_size=sample_size,
         ace_files_directory=ace_files_directory
     )

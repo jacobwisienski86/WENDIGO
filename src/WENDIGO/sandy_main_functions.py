@@ -1,6 +1,6 @@
 # Main functions related to Sandy to be used with WENDIGO
 
-def SandyCovarianceRetrieval(
+def sandy_covariance_retrieval(
     energy_grid,
     nuclide,
     mt_Number,
@@ -47,11 +47,11 @@ def SandyCovarianceRetrieval(
 
     'Import necessary internal functions'
 
-    from SandyInternalFunctions import (
-        retrieveNuclideInformation,
-        retrieveCovarianceData,
-        plotCovariance,
-        saveCovarianceFile
+    from sandy_internal_functions import (
+        retrieve_nuclide_information,
+        retrieve_covariance_data,
+        plot_covariance,
+        save_covariance_file
     )
 
     (
@@ -59,11 +59,11 @@ def SandyCovarianceRetrieval(
         "data is retrieved using Sandy"
     )
 
-    nuclide_number = retrieveNuclideInformation(nuclide=nuclide)
+    nuclide_number = retrieve_nuclide_information(nuclide=nuclide)
 
     'Retrieve the covariance data using Sandy'
 
-    covariance_data, flag_String = retrieveCovarianceData(
+    covariance_data, flag_String = retrieve_covariance_data(
         energy_grid=energy_grid,
         nuclide=nuclide,
         mt_Number=mt_Number,
@@ -76,7 +76,7 @@ def SandyCovarianceRetrieval(
     'Create a plot of the covariance data if chosen'
 
     if plotting_Flag:
-        plot_filename = plotCovariance(
+        plot_filename = plot_covariance(
             covariance_data=covariance_data,
             energy_grid=energy_grid,
             nuclide=nuclide,
@@ -86,7 +86,7 @@ def SandyCovarianceRetrieval(
 
     'Save the covariance data to a file'
 
-    csv_filename = saveCovarianceFile(
+    csv_filename = save_covariance_file(
         covariance_data=covariance_data,
         energy_grid=energy_grid,
         nuclide=nuclide,
