@@ -28,9 +28,10 @@ def count_directories(perturbed_ACE_folder_path):
     )
 
     for checked_directory in os.scandir(perturbed_ACE_folder_path):
-        if 'Input' in checked_directory.path or 'input' in checked_directory.path:
+    
+        if 'input' in checked_directory.path.lower():
             continue
-        elif checked_directory.is_dir():
+        if checked_directory.is_dir():
             directory_number += 1
 
     return directory_number
@@ -105,15 +106,15 @@ def create_unperturbed_library(
 
     for nuclide in unperturbed_nuclide_list:
         for file in os.listdir(neutron_sublibrary_path):
-            if nuclide in file:
+            if nuclide in file and file.endswith(".h5"):
                 xs_filename = neutron_sublibrary_path + '/' + file
                 unperturbed_library.register_file(xs_filename)
 
     for thermal_scatter in unperturbed_TSL_list:
         for file in os.listdir(thermal_scatter_sublibrary_path):
-            if thermal_scatter in file:
+            if thermal_scatter in file and file.endswith(".h5"):
                 tsl_filename = thermal_scatter_sublibrary_path + '/' + file
-        unperturbed_library.register_file(tsl_filename)
+                unperturbed_library.register_file(tsl_filename)
 
     return unperturbed_library
 
@@ -241,7 +242,7 @@ def create_perturbed_xml(
         'Retrieve the perturbed ACE file in the folder'
 
         for file in os.listdir(perturbed_data_folder):
-            if ('xsdir' not in file) and ('h5' not in file):
+            if ('xsdir' not in file) and ('h5' not in file) and ('.ace' in file):
                 perturbed_ACE_file_path = perturbed_data_folder + '/' + file
             else:
                 continue
