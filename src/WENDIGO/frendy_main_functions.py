@@ -35,7 +35,7 @@ def generate_unperturbed_neutron_ace_file(
     'Import modules and internal functions'
 
     import os
-    from .FRENDYInternalFunctions import (
+    from .frendy_internal_functions import (
         format_endf_evaluation,
         create_unperturbed_ace_generation_input
     )
@@ -148,7 +148,7 @@ def generate_direct_perturbation_ace_files(
 
     import os
     import shutil
-    from .FRENDYInternalFunctions import (
+    from .frendy_internal_functions import (
         create_direct_perturbation_inputs,
         create_direct_perturbation_list,
         create_direct_perturbation_command_file,
