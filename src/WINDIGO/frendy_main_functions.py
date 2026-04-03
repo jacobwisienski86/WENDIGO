@@ -1,7 +1,8 @@
-# Set of functions related to the workflow that make use of FRENDY
+# Functions related to FRENDY functionality for WENDIGO
 
 import os
 import shutil
+
 from WINDIGO.frendy_internal_functions import (
     format_endf_evaluation,
     create_unperturbed_ace_generation_input,
@@ -16,8 +17,9 @@ from WINDIGO.frendy_internal_functions import (
     create_random_sampling_pert_list,
     create_random_sampling_ace_directory,
     create_random_sampling_ace_execution_file,
-    random_sampling_folder_check
+    random_sampling_folder_check,
 )
+
 
 def generate_unperturbed_neutron_ace_file(
     frendy_Path,
@@ -29,36 +31,44 @@ def generate_unperturbed_neutron_ace_file(
     cleanup_Flag=True
 ):
     """
-    Generates unperturbed neutron cross section ACE files for use in the workflow.
+    Generate unperturbed neutron cross section ACE files for use in the
+    workflow.
 
-    Parameters:
-        frendy_Path (str): Full path to the FRENDY installation directory.
+    Parameters
+    ----------
+    frendy_Path : str
+        Full path to the FRENDY installation directory.
 
-        endf_Path (str): Full path to the ENDF evaluation for the nuclide.
+    endf_Path : str
+        Full path to the ENDF evaluation for the nuclide.
 
-        temperature (int): Temperature at which to generate the ACE file.
+    temperature : int
+        Temperature at which to generate the ACE file.
 
-        nuclide (str): Name of the nuclide whose ENDF evaluation is used.
+    nuclide : str
+        Name of the nuclide whose ENDF evaluation is used.
 
-        upgrade_Flag (Bool): Add additional energy grid points if True.
+    upgrade_Flag : bool, optional
+        Add additional energy grid points if True.
 
-        energy_grid (list or ndarray): Energy grid used for perturbation bounds. [in eV]
+    energy_grid : list or ndarray, optional
+        Energy grid used for perturbation bounds [eV].
 
-        cleanup_Flag (Bool): Delete intermediate files if True.
+    cleanup_Flag : bool, optional
+        Delete intermediate files if True.
 
-    Results:
-        output_file_path (str): Path to the generated ACE file.
+    Returns
+    -------
+    str
+        Path to the generated ACE file.
     """
-
     if energy_grid is None:
         energy_grid = []
 
-    'Format the endf file into a .dat format'
-
+    # Convert ENDF evaluation to .dat format
     endf_file_dat = format_endf_evaluation(endf_Path=endf_Path)
 
-    'Write the input file for the ACE file generation'
-
+    # Create FRENDY input file
     ace_file_gen_input_filename = create_unperturbed_ace_generation_input(
         frendy_Path=frendy_Path,
         nuclide=nuclide,
@@ -68,57 +78,50 @@ def generate_unperturbed_neutron_ace_file(
         energy_grid=energy_grid
     )
 
-    'Specifies the executable directory and the ACE file generation command'
-
-    executable_directory = frendy_Path + '/frendy/main'
-    run_command = './frendy.exe ' + str(ace_file_gen_input_filename)
-
-    'Save the starting directory so that it can be returned to after FRENDY runs'
+    # Build command and switch directories
+    executable_directory = f"{frendy_Path}/frendy/main"
+    run_command = f"./frendy.exe {ace_file_gen_input_filename}"
 
     starting_directory = os.getcwd()
-
-    'Set the current directory to that of the FRENDY executable, and run the command'
-
     os.chdir(executable_directory)
-    os.system(str(run_command))
-
-    'Return to the starting directory after FRENDY runs'
-
+    os.system(run_command)
     os.chdir(starting_directory)
 
-    'First portion of the optional intermediate file cleanup'
-
+    # Cleanup intermediate files
     if cleanup_Flag:
         os.remove(endf_file_dat)
         os.remove(ace_file_gen_input_filename)
 
-    (
-        "Specify output ACE file's name for printing later, and perform any "
-        "remaining file cleanup if needed"
-    )
-
+    # Determine output ACE file path
     if upgrade_Flag:
-        output_file_path = executable_directory + '/' + str(nuclide) + '_upgrade.ace'
-
+        output_file_path = (
+            f"{executable_directory}/{nuclide}_upgrade.ace"
+        )
         if cleanup_Flag:
-            os.remove(executable_directory + '/' + str(nuclide) + '_upgrade.ace.ace.dir')
-            print('Intermediate Files Removed')
-
+            os.remove(
+                f"{executable_directory}/{nuclide}_upgrade.ace.ace.dir"
+            )
+            print("Intermediate Files Removed")
     else:
-        output_file_path = executable_directory + '/' + str(nuclide) + '.ace'
-
+        output_file_path = f"{executable_directory}/{nuclide}.ace"
         if cleanup_Flag:
-            os.remove(executable_directory + '/' + str(nuclide) + '.ace.ace.dir')
-            print('Intermediate Files Removed')
+            os.remove(
+                f"{executable_directory}/{nuclide}.ace.ace.dir"
+            )
+            print("Intermediate Files Removed")
 
-    'Check if the ACE file was successfully generated'
-
+    # Report success or failure
+    print("\n")
     if os.path.exists(output_file_path):
-        print('\n')
-        print("ACE file successfully generated. The path to it is: " + str(output_file_path))
+        print(
+            "ACE file successfully generated. The path to it is: "
+            f"{output_file_path}"
+        )
     else:
-        print('\n')
-        print("ACE file couldn't generate; consult terminal output for assistance")
+        print(
+            "ACE file couldn't generate; consult terminal output for "
+            "assistance"
+        )
 
     return output_file_path
 
@@ -133,50 +136,49 @@ def generate_direct_perturbation_ace_files(
     cleanup_Flag=True
 ):
     """
-    Generates direct perturbation ACE files.
+    Generate direct perturbation ACE files.
 
-    Parameters:
-        frendy_Path (str): Path to FRENDY installation.
+    Parameters
+    ----------
+    frendy_Path : str
+        Path to FRENDY installation.
 
-        unperturbed_ACE_file_path (str): Path to the unperturbed ACE file.
+    unperturbed_ACE_file_path : str
+        Path to the unperturbed ACE file.
 
-        energy_grid (list or ndarray): Energy bounds for perturbations [MeV].
+    energy_grid : list or ndarray
+        Energy bounds for perturbations [MeV].
 
-        mt_Number (int): MT number of the reaction to perturb.
+    mt_Number : int
+        MT number of the reaction to perturb.
 
-        nuclide (str): Nuclide whose ACE file will be perturbed.
+    nuclide : str
+        Nuclide whose ACE file will be perturbed.
 
-        perturbation_coefficient (float): Multiplicative factor for perturbation.
+    perturbation_coefficient : float
+        Multiplicative factor for perturbation.
 
-        cleanup_Flag (Bool): Delete intermediate files if True.
+    cleanup_Flag : bool, optional
+        Delete intermediate files if True.
 
-    Results:
-        perturbed_ace_folder_path (str): Directory containing perturbed ACE files.
+    Returns
+    -------
+    str
+        Directory containing perturbed ACE files.
     """
-    
-    'Store the initial directory to return to after creating the ACE files'
-
     starting_directory = os.getcwd()
-
-    'Set the current directory to that of FRENDY'
-
     os.chdir(frendy_Path)
 
-    'Create a folder to store the directly perturbed ACE files'
-
+    # Create directory for perturbed ACE files
     perturbed_ace_folder_path = (
-        frendy_Path + '/' + str(nuclide)
-        + '_DirectPerturbationACEFiles_ReactionMT_' + str(mt_Number)
+        f"{frendy_Path}/{nuclide}_DirectPerturbationACEFiles_"
+        f"ReactionMT_{mt_Number}"
     )
-
     os.makedirs(perturbed_ace_folder_path)
-
-    'Set the current directory to that folder for ease of generation'
 
     os.chdir(perturbed_ace_folder_path)
 
-    'Create the direct perturbation input files'
-
+    # Create direct perturbation inputs
     (
         perturbation_list_lines,
         perturbation_input_folder_name
@@ -187,55 +189,51 @@ def generate_direct_perturbation_ace_files(
         perturbation_coefficient=perturbation_coefficient
     )
 
-    'Create a list of the direct perturbation input files'
-
+    # Create list file
     perturbation_list_filename = create_direct_perturbation_list(
         nuclide=nuclide,
         mt_Number=mt_Number,
         perturbation_list_lines=perturbation_list_lines
     )
 
-    'Create the execution file for the direct perturbations'
-
-    create_ace_files_input_filename = create_direct_perturbation_command_file(
-        frendy_Path=frendy_Path,
-        perturbation_list_filename=perturbation_list_filename,
-        unperturbed_ACE_file_path=unperturbed_ACE_file_path
+    # Create execution file
+    create_ace_files_input_filename = (
+        create_direct_perturbation_command_file(
+            frendy_Path=frendy_Path,
+            perturbation_list_filename=perturbation_list_filename,
+            unperturbed_ACE_file_path=unperturbed_ACE_file_path
+        )
     )
 
-    'Run the file generation command'
+    # Run FRENDY command
+    os.system("csh ./run_create_perturbed_ace_file.csh")
 
-    file_generation_command = 'csh ./run_create_perturbed_ace_file.csh'
-    os.system(file_generation_command)
-
-    'Check if all of the files were created successfully'
-
+    # Check for failures
     file_failure_flag = direct_perturbation_folder_check(
         perturbed_ace_folder_path=perturbed_ace_folder_path,
         energy_grid=energy_grid
     )
 
-    'Optional File Cleanup Section'
-
+    # Cleanup
     if cleanup_Flag:
         os.remove(perturbation_list_filename)
         shutil.rmtree(perturbation_input_folder_name)
         os.remove(create_ace_files_input_filename)
-        os.remove(perturbed_ace_folder_path + '/results.log')
-        print('Intermediate Files Removed')
-
-    'Return to the starting directory'
+        os.remove(f"{perturbed_ace_folder_path}/results.log")
+        print("Intermediate Files Removed")
 
     os.chdir(starting_directory)
 
-    'Display output message'
-
+    # Report results
     if file_failure_flag:
-        print("One or more ACE files failed to generate; consult outputs for details")
+        print(
+            "One or more ACE files failed to generate; consult outputs "
+            "for details"
+        )
     else:
         print(
             "All ACE files have successfully generated; they are located in: "
-            + str(perturbed_ace_folder_path)
+            f"{perturbed_ace_folder_path}"
         )
         return perturbed_ace_folder_path
 
@@ -251,53 +249,63 @@ def generate_random_sampling_ace_files(
     cleanup_Flag=True
 ):
     """
-    Generates ACE files perturbed using randomly sampled perturbation coefficients.
+    Generate ACE files perturbed using randomly sampled perturbation
+    coefficients.
 
-    Parameters:
-        frendy_Path (str): Path to FRENDY installation directory.
+    Parameters
+    ----------
+    frendy_Path : str
+        Path to FRENDY installation directory.
 
-        relative_covariance_matrix_path (str): Path to CSV with relative
-        covariance matrix data.
+    relative_covariance_matrix_path : str
+        Path to CSV containing relative covariance matrix data.
 
-        unperturbed_ACE_file_path (str): Path to the unperturbed ACE file.
+    unperturbed_ACE_file_path : str
+        Path to the unperturbed ACE file.
 
-        energy_grid (list or ndarray): Energy bounds for perturbations [MeV].
+    energy_grid : list or ndarray
+        Energy bounds for perturbations [MeV].
 
-        mt_Number (int): MT number for the reaction of interest.
+    mt_Number : int
+        MT number for the reaction of interest.
 
-        nuclide (str): Nuclide name without hyphens (e.g., H1, U235).
+    nuclide : str
+        Nuclide name without hyphens (e.g., H1, U235).
 
-        seed (int): Random sampling seed. Default: 1234567.
+    seed : int, optional
+        Random sampling seed. Default is 1234567.
 
-        sample_size (int): Number of random sampling input files. Default: 100.
+    sample_size : int, optional
+        Number of random sampling input files. Default is 100.
 
-        cleanup_Flag (Bool): Delete intermediate files if True.
+    cleanup_Flag : bool, optional
+        Delete intermediate files if True.
 
-    Results:
-        ace_files_directory (str): Directory where the random sampling ACE
-        files are located.
+    Returns
+    -------
+    str
+        Directory where the random sampling ACE files are located.
     """
-
-    'Grab the starting directory to return to as need be'
-
+    # Save starting directory
     starting_directory = os.getcwd()
 
-    'Retrieve the directory for the random sampling'
-
-    random_sampling_tool_directory = frendy_Path + '/tools/make_perturbation_factor'
-    executable_directory = random_sampling_tool_directory + '/make_perturbation_factor.exe'
+    # Set up random sampling tool paths
+    random_sampling_tool_directory = (
+        f"{frendy_Path}/tools/make_perturbation_factor"
+    )
+    executable_directory = (
+        f"{random_sampling_tool_directory}/make_perturbation_factor.exe"
+    )
 
     os.chdir(random_sampling_tool_directory)
 
-    'Create the file used to execute the commands for generating the random sampling perturbation coefficients'
-
+    # Create execution file for random sampling tool
     execution_filename = create_random_sampling_tool_execution_file(
         executable_directory=executable_directory,
         random_sampling_tool_directory=random_sampling_tool_directory
     )
 
-    'Create random sampling tool inputs'
-
+    # Create random sampling input file
     sample_filename = create_random_sampling_tool_inputs(
         sample_size=sample_size,
         seed=seed,
@@ -307,8 +315,7 @@ def generate_random_sampling_ace_files(
         mt_Number=mt_Number
     )
 
-    'Generate the randomly sampled perturbation factors'
-
+    # Generate random perturbation factors
     generate_random_sampling_factors(
         execution_filename=execution_filename,
         random_sampling_tool_directory=random_sampling_tool_directory,
@@ -317,9 +324,7 @@ def generate_random_sampling_ace_files(
         cleanup_Flag=cleanup_Flag
     )
 
-    'Move the randomly sampled perturbation factors to the main FRENDY'
-    'directory, and rename the associated folder'
-
+    # Move sampled perturbation factors to FRENDY root directory
     new_inputs_directory_name = move_random_sampling_files(
         random_sampling_tool_directory=random_sampling_tool_directory,
         nuclide=nuclide,
@@ -327,12 +332,10 @@ def generate_random_sampling_ace_files(
         mt_Number=mt_Number
     )
 
-    'Move to the root FRENDY directory'
-
+    # Move to FRENDY root directory
     os.chdir(frendy_Path)
 
-    'Generate a file with a list of the random sampling inputs'
-
+    # Create list of random sampling inputs
     perturbation_list_filename = create_random_sampling_pert_list(
         nuclide=nuclide,
         mt_Number=mt_Number,
@@ -340,10 +343,7 @@ def generate_random_sampling_ace_files(
         sample_size=sample_size
     )
 
-    
-    'Create a directory to store the random sampling ACE files, and move '
-    'the inputs and perturbation list into it'
-
+    # Create directory for ACE files and move inputs into it
     ace_files_directory = create_random_sampling_ace_directory(
         frendy_Path=frendy_Path,
         nuclide=nuclide,
@@ -352,52 +352,52 @@ def generate_random_sampling_ace_files(
         new_inputs_directory_name=new_inputs_directory_name
     )
 
-    'Set the current directory to that where the randomly sampled ACE files will be stored'
-
+    # Move into ACE file directory
     os.chdir(ace_files_directory)
 
-    'Create the file with the commands to create the ACE files'
-
-    create_ace_files_input_filename = create_random_sampling_ace_execution_file(
-        frendy_Path=frendy_Path,
-        ace_files_directory=ace_files_directory,
-        nuclide=nuclide,
-        mt_Number=mt_Number,
-        unperturbed_ACE_file_path=unperturbed_ACE_file_path
+    # Create execution file for ACE generation
+    create_ace_files_input_filename = (
+        create_random_sampling_ace_execution_file(
+            frendy_Path=frendy_Path,
+            ace_files_directory=ace_files_directory,
+            nuclide=nuclide,
+            mt_Number=mt_Number,
+            unperturbed_ACE_file_path=unperturbed_ACE_file_path
+        )
     )
 
-    'Run the command to generate the ACE files'
-
-    random_sampling_file_command = 'csh ./' + str(create_ace_files_input_filename)
+    # Run ACE generation command
+    random_sampling_file_command = (
+        f"csh ./{create_ace_files_input_filename}"
+    )
     os.system(random_sampling_file_command)
 
-    'Check if all of the ACE files were created properly'
-
+    # Check for failures
     file_failure_flag = random_sampling_folder_check(
         sample_size=sample_size,
         ace_files_directory=ace_files_directory
     )
 
-    'Optional File Cleanup Section'
-
+    # Cleanup
     if cleanup_Flag:
         os.remove(perturbation_list_filename)
         shutil.rmtree(new_inputs_directory_name)
         os.remove(create_ace_files_input_filename)
-        os.remove('results.log')
-        print('Intermediate Files Removed')
+        os.remove("results.log")
+        print("Intermediate Files Removed")
 
-    'Return to the starting directory'
-
+    # Return to starting directory
     os.chdir(starting_directory)
 
-    'Display outputs depending on completion status'
-
-    if file_failure_flag is True:
-        print('ACE files not generated successfully; check outputs for more information')
+    # Report results
+    if file_failure_flag:
+        print(
+            "ACE files not generated successfully; check outputs for more "
+            "information"
+        )
     else:
         print(
-            'All ACE files generated successfully and are located in: '
-            + str(ace_files_directory)
+            "All ACE files generated successfully and are located in: "
+            f"{ace_files_directory}"
         )
         return ace_files_directory

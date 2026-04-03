@@ -1,5 +1,5 @@
 # File used to store the ZZZ numbers for each element to be used in the
-# Sandy covariance retrieval functionality
+# Sandy covariance retrieval functionality.
 
 nuclide_ZZZs = {
     'H': 1,
