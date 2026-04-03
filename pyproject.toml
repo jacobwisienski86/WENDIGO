@@ -5,7 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "WINDIGO"
 version = "0.0.1"
-dependencies = []
 authors = [
-    {name = "Jacob Wisienski", email = "jacobwisienski86@gmail.com"}
+    { name = "Jacob Wisienski", email = "jacobwisienski86@gmail.com" }
 ]
+dependencies = []
+requires-python = ">=3.8"
+
+[tool.setuptools.packages.find]
+where = ["src"]
