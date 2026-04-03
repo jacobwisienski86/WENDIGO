@@ -3,7 +3,7 @@
 import os
 import shutil
 
-from WINDIGO.frendy_internal_functions import (
+from .frendy_internal_functions import (
     format_endf_evaluation,
     create_unperturbed_ace_generation_input,
     create_direct_perturbation_inputs,

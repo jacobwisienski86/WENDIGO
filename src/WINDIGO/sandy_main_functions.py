@@ -1,7 +1,7 @@
 # Main functions related to Sandy to be used with WENDIGO
 
 # Import internal functions
-from WINDIGO.sandy_internal_functions import (
+from .sandy_internal_functions import (
     retrieve_nuclide_information,
     retrieve_covariance_data,
     plot_covariance,

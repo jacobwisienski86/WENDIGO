@@ -1,6 +1,6 @@
 # Functions related to functionality with OpenMC for WENDIGO
 
-from WINDIGO.openmc_internal_functions import (
+from .openmc_internal_functions import (
     count_directories,
     create_numbers,
     create_unperturbed_library,

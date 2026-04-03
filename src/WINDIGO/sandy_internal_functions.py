@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-from WINDIGO.z_number_library import nuclide_ZZZs
+from .z_number_library import nuclide_ZZZs
 
 
 def retrieve_nuclide_information(nuclide):
