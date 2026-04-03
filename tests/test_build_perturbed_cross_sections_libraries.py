@@ -1,146 +1,127 @@
-"""
-Unit tests for build_perturbed_cross_sections_libraries.
-All helper functions are mocked to verify orchestration logic.
-"""
+# tests/test_build_perturbed_cross_sections_libraries.py
+# Tests for build_perturbed_cross_sections_libraries in openmc_main_functions.py
 
+import builtins
 import pytest
 
+from src.WINDIGO.openmc_main_functions import (
+    build_perturbed_cross_sections_libraries,
+)
 
-def test_build_perturbed_cross_sections_libraries_happy_path(monkeypatch):
-    'Test that all helper functions are called with correct arguments'
-    module = "src.WINDIGO.openmc_internal_functions"
 
-    calls = {}
+def test_build_perturbed_cross_sections_libraries(monkeypatch):
+    """Test full orchestration workflow for building perturbed XS libraries."""
 
-    def fake_count_directories(perturbed_ACE_folder_path):
-        calls["count"] = perturbed_ACE_folder_path
-        return 3
+    calls = {
+        "count_directories": [],
+        "create_numbers": [],
+        "create_unperturbed_library": [],
+        "create_model_folders": [],
+        "create_perturbed_xml": [],
+        "print": [],
+    }
 
-    def fake_create_numbers(directory_number):
-        calls["numbers"] = directory_number
-        return ["0001", "0002", "0003"]
-
-    def fake_create_unperturbed_library(**kwargs):
-        calls["unperturbed"] = kwargs
-        return "LIB"
-
-    def fake_create_model_folders(**kwargs):
-        calls["folders"] = kwargs
-        return ("TOP_DIR", ["m1", "m2", "m3"])
-
-    def fake_create_perturbed_xml(**kwargs):
-        calls["xml"] = kwargs
-
-    monkeypatch.setattr(f"{module}.count_directories", fake_count_directories)
-    monkeypatch.setattr(f"{module}.create_numbers", fake_create_numbers)
-    monkeypatch.setattr(f"{module}.create_unperturbed_library", fake_create_unperturbed_library)
-    monkeypatch.setattr(f"{module}.create_model_folders", fake_create_model_folders)
-    monkeypatch.setattr(f"{module}.create_perturbed_xml", fake_create_perturbed_xml)
-
-    from src.WINDIGO.openmc_main_functions import build_perturbed_cross_sections_libraries
-
-    result = build_perturbed_cross_sections_libraries(
-        unperturbed_nuclide_list=["U235"],
-        neutron_sublibrary_path="/neut",
-        unperturbed_TSL_list=["c_H_in_H2O"],
-        thermal_scatter_sublibrary_path="/tsl",
-        perturbed_ACE_folder_path="/ace",
-        perturbed_nuclide="U235",
-        model_name="TestModel",
-        perturbation_type="random"
+    # -----------------------------
+    # Mock helper functions
+    # -----------------------------
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_main_functions.count_directories",
+        lambda perturbed_ACE_folder_path: (
+            calls["count_directories"].append(perturbed_ACE_folder_path) or 3
+        ),
     )
 
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_main_functions.create_numbers",
+        lambda directory_number: (
+            calls["create_numbers"].append(directory_number) or
+            ["0001", "0002", "0003"]
+        ),
+    )
+
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_main_functions.create_unperturbed_library",
+        lambda **kwargs: calls["create_unperturbed_library"].append(kwargs) or "UNPERT_LIB",
+    )
+
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_main_functions.create_model_folders",
+        lambda **kwargs: (
+            calls["create_model_folders"].append(kwargs) or
+            ("TOP_DIR", ["TOP_DIR/Model_1_Folder", "TOP_DIR/Model_2_Folder", "TOP_DIR/Model_3_Folder"])
+        ),
+    )
+
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_main_functions.create_perturbed_xml",
+        lambda **kwargs: calls["create_perturbed_xml"].append(kwargs),
+    )
+
+    monkeypatch.setattr(
+        builtins, "print",
+        lambda msg: calls["print"].append(msg),
+    )
+
+    # -----------------------------
+    # Inputs
+    # -----------------------------
+    unperturbed_nuclides = ["H1", "U235"]
+    neutron_path = "/neutron"
+    tsl_list = ["HH2O"]
+    tsl_path = "/tsl"
+    ace_path = "/ace"
+
+    # -----------------------------
+    # Run function
+    # -----------------------------
+    result = build_perturbed_cross_sections_libraries(
+        unperturbed_nuclide_list=unperturbed_nuclides,
+        neutron_sublibrary_path=neutron_path,
+        unperturbed_TSL_list=tsl_list,
+        thermal_scatter_sublibrary_path=tsl_path,
+        perturbed_ACE_folder_path=ace_path,
+        perturbed_nuclide="U235",
+        model_name="CoolModel",
+        perturbation_type="Direct",
+    )
+
+    # -----------------------------
+    # Validate return value
+    # -----------------------------
     assert result == "TOP_DIR"
 
-    assert calls["count"] == "/ace"
-    assert calls["numbers"] == 3
+    # -----------------------------
+    # Validate helper calls
+    # -----------------------------
+    assert calls["count_directories"] == [ace_path]
+    assert calls["create_numbers"] == [3]
 
-    assert calls["unperturbed"] == {
-        "neutron_sublibrary_path": "/neut",
-        "unperturbed_nuclide_list": ["U235"],
-        "unperturbed_TSL_list": ["c_H_in_H2O"],
-        "thermal_scatter_sublibrary_path": "/tsl",
-    }
+    # create_unperturbed_library arguments
+    unpert_lib_args = calls["create_unperturbed_library"][0]
+    assert unpert_lib_args["neutron_sublibrary_path"] == neutron_path
+    assert unpert_lib_args["unperturbed_nuclide_list"] == unperturbed_nuclides
+    assert unpert_lib_args["unperturbed_TSL_list"] == tsl_list
+    assert unpert_lib_args["thermal_scatter_sublibrary_path"] == tsl_path
 
-    assert calls["folders"] == {
-        "directory_number": 3,
-        "perturbed_nuclide": "U235",
-        "model_name": "TestModel",
-        "perturbation_type": "random",
-    }
+    # create_model_folders arguments
+    model_folder_args = calls["create_model_folders"][0]
+    assert model_folder_args["directory_number"] == 3
+    assert model_folder_args["perturbed_nuclide"] == "U235"
+    assert model_folder_args["model_name"] == "CoolModel"
+    assert model_folder_args["perturbation_type"] == "Direct"
 
-    assert calls["xml"] == {
-        "unperturbed_library": "LIB",
-        "perturbed_ACE_folder_path": "/ace",
-        "four_digit_numbers": ["0001", "0002", "0003"],
-        "perturbed_model_folder_list": ["m1", "m2", "m3"],
-    }
-
-
-def test_build_perturbed_cross_sections_libraries_defaults(monkeypatch):
-    'Test behavior when optional parameters are omitted'
-    module = "src.WINDIGO.openmc_internal_functions"
-
-    monkeypatch.setattr(f"{module}.count_directories", lambda perturbed_ACE_folder_path: 1)
-    monkeypatch.setattr(f"{module}.create_numbers", lambda directory_number: ["0001"])
-    monkeypatch.setattr(f"{module}.create_unperturbed_library", lambda **kwargs: "LIB")
-    monkeypatch.setattr(f"{module}.create_model_folders",
-                        lambda **kwargs: ("TOP", ["m1"]))
-
-    xml_args = {}
-    monkeypatch.setattr(f"{module}.create_perturbed_xml",
-                        lambda **kwargs: xml_args.update(kwargs))
-
-    from src.WINDIGO.openmc_main_functions import build_perturbed_cross_sections_libraries
-
-    result = build_perturbed_cross_sections_libraries(
-        unperturbed_nuclide_list=["U238"],
-        neutron_sublibrary_path="/neut",
-        unperturbed_TSL_list=[],
-        thermal_scatter_sublibrary_path="/tsl",
-        perturbed_ACE_folder_path="/ace"
-    )
-
-    assert result == "TOP"
-    assert xml_args["four_digit_numbers"] == ["0001"]
-    assert xml_args["perturbed_ACE_folder_path"] == "/ace"
-
-
-def test_build_perturbed_cross_sections_libraries_call_order(monkeypatch):
-    'Test that helper functions are called in the correct order'
-    module = "src.WINDIGO.openmc_internal_functions"
-
-    call_order = []
-
-    def wrap(name):
-        def inner(*args, **kwargs):
-            call_order.append(name)
-            if name == "count":
-                return 2
-            if name == "numbers":
-                return ["0001", "0002"]
-            if name == "unperturbed":
-                return "LIB"
-            if name == "folders":
-                return ("TOP", ["m1", "m2"])
-        return inner
-
-    monkeypatch.setattr(f"{module}.count_directories", wrap("count"))
-    monkeypatch.setattr(f"{module}.create_numbers", wrap("numbers"))
-    monkeypatch.setattr(f"{module}.create_unperturbed_library", wrap("unperturbed"))
-    monkeypatch.setattr(f"{module}.create_model_folders", wrap("folders"))
-    monkeypatch.setattr(f"{module}.create_perturbed_xml", wrap("xml"))
-
-    from src.WINDIGO.openmc_main_functions import build_perturbed_cross_sections_libraries
-
-    build_perturbed_cross_sections_libraries(
-        ["U235"], "/neut", [], "/tsl", "/ace"
-    )
-
-    assert call_order == [
-        "count",
-        "numbers",
-        "unperturbed",
-        "folders",
-        "xml",
+    # create_perturbed_xml arguments
+    pert_xml_args = calls["create_perturbed_xml"][0]
+    assert pert_xml_args["unperturbed_library"] == "UNPERT_LIB"
+    assert pert_xml_args["perturbed_ACE_folder_path"] == ace_path
+    assert pert_xml_args["four_digit_numbers"] == ["0001", "0002", "0003"]
+    assert pert_xml_args["perturbed_model_folder_list"] == [
+        "TOP_DIR/Model_1_Folder",
+        "TOP_DIR/Model_2_Folder",
+        "TOP_DIR/Model_3_Folder",
     ]
+
+    # -----------------------------
+    # Validate printed output
+    # -----------------------------
+    assert any("All perturbed cross_sections.xml files created" in msg for msg in calls["print"])

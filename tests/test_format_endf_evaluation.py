@@ -1,21 +1,21 @@
-"""
-Unit tests for format_endf_evaluation.
-"""
+# tests/test_format_endf_evaluation.py
+# Tests for the function: format_endf_evaluation
 
+import shutil
 import pytest
+
+from src.WINDIGO.frendy_internal_functions import format_endf_evaluation
 
 
 def test_format_endf_evaluation_basic(monkeypatch):
-    'Test that .dat filename is created correctly and copy2 is called'
+    """Ensure .dat filename is created correctly and shutil.copy2 is called."""
 
     copied = []
 
     def fake_copy2(src, dst):
         copied.append((src, dst))
 
-    monkeypatch.setattr("shutil.copy2", fake_copy2)
-
-    from src.WINDIGO.frendy_internal_functions import format_endf_evaluation
+    monkeypatch.setattr("src.WINDIGO.frendy_internal_functions.shutil.copy2", fake_copy2)
 
     result = format_endf_evaluation("/path/to/U235.endf")
 
@@ -26,16 +26,14 @@ def test_format_endf_evaluation_basic(monkeypatch):
 
 
 def test_format_endf_evaluation_relative_path(monkeypatch):
-    'Test that relative .endf paths are handled correctly'
+    """Ensure relative .endf paths are handled correctly."""
 
     copied = []
 
     monkeypatch.setattr(
-        "shutil.copy2",
-        lambda src, dst: copied.append((src, dst))
+        "src.WINDIGO.frendy_internal_functions.shutil.copy2",
+        lambda src, dst: copied.append((src, dst)),
     )
-
-    from src.WINDIGO.frendy_internal_functions import format_endf_evaluation
 
     result = format_endf_evaluation("Th232.endf")
 
@@ -46,20 +44,17 @@ def test_format_endf_evaluation_relative_path(monkeypatch):
 
 
 def test_format_endf_evaluation_filename_with_dots(monkeypatch):
-    'Test .endf filenames containing multiple dots'
+    """Ensure filenames containing multiple dots still convert correctly."""
 
     copied = []
 
     monkeypatch.setattr(
-        "shutil.copy2",
-        lambda src, dst: copied.append((src, dst))
+        "src.WINDIGO.frendy_internal_functions.shutil.copy2",
+        lambda src, dst: copied.append((src, dst)),
     )
-
-    from src.WINDIGO.frendy_internal_functions import format_endf_evaluation
 
     result = format_endf_evaluation("/lib/n-092.U235.v1.endf")
 
-    # Remove last 5 chars: ".endf" → ".dat"
     assert result == "/lib/n-092.U235.v1.dat"
     assert copied == [
         ("/lib/n-092.U235.v1.endf", "/lib/n-092.U235.v1.dat")

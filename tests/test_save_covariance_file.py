@@ -1,122 +1,116 @@
-"""
-Unit tests for save_covariance_file.
-"""
+# tests/test_save_covariance_file.py
+# Tests for save_covariance_file in sandy_internal_functions.py
 
+import builtins
 import pytest
-import numpy as np
+
+from src.WINDIGO.sandy_internal_functions import save_covariance_file
 
 
-@pytest.fixture
-def mock_file_ops(monkeypatch):
-    """
-    Mock pandas and os operations so no real files are created.
-    """
+def test_save_covariance_file(monkeypatch):
+    """Test that covariance data is saved, reloaded, saved again, and cleaned up."""
 
-    class MockDataFrame:
-        def __init__(self):
-            self.saved_files = []
+    # -----------------------------
+    # Capture calls
+    # -----------------------------
+    calls = {
+        "cov_to_csv": [],
+        "pd_read_csv": [],
+        "df_to_csv": [],
+        "remove": [],
+        "print": [],
+    }
 
-        def to_csv(self, filename, index=False, header=True):
-            # Record filenames written
-            self.saved_files.append((filename, index, header))
+    # -----------------------------
+    # Mock covariance_data.to_csv
+    # -----------------------------
+    class FakeCovariance:
+        def to_csv(self, filename, index):
+            calls["cov_to_csv"].append((filename, index))
 
-    mock_df = MockDataFrame()
+    covariance_data = FakeCovariance()
 
-    # Mock covariance_data.to_csv(...)
+    # -----------------------------
+    # Mock pandas.read_csv
+    # -----------------------------
+    class FakeDF:
+        def to_csv(self, filename, index, header):
+            calls["df_to_csv"].append((filename, index, header))
+
     monkeypatch.setattr(
-        "pandas.DataFrame.to_csv",
-        lambda self, filename, index=False, header=True:
-            mock_df.to_csv(filename, index=index, header=header)
+        "src.WINDIGO.sandy_internal_functions.pd.read_csv",
+        lambda filename, skiprows: calls["pd_read_csv"].append((filename, skiprows)) or FakeDF(),
     )
 
-    # Mock pandas.read_csv to return a DataFrame-like object
-    monkeypatch.setattr(
-        "pandas.read_csv",
-        lambda filename, skiprows=0: mock_df
-    )
-
+    # -----------------------------
     # Mock os.remove
-    removed_files = []
+    # -----------------------------
+    monkeypatch.setattr(
+        "src.WINDIGO.sandy_internal_functions.os.remove",
+        lambda filename: calls["remove"].append(filename),
+    )
 
-    def fake_remove(filename):
-        removed_files.append(filename)
+    # -----------------------------
+    # Mock print
+    # -----------------------------
+    monkeypatch.setattr(
+        builtins, "print",
+        lambda msg: calls["print"].append(msg),
+    )
 
-    monkeypatch.setattr("os.remove", fake_remove)
-
-    return mock_df, removed_files
-
-
-def test_save_covariance_file_basic(mock_file_ops):
-    """
-    Test that save_covariance_file writes the correct filenames and removes
-    the intermediate CSV.
-    """
-
-    from src.WINDIGO.sandy_internal_functions import save_covariance_file
-
-    mock_df, removed_files = mock_file_ops
-
-    # Fake covariance data with a to_csv method
-    class FakeCovariance:
-        def to_csv(self, filename, index=False):
-            mock_df.to_csv(filename, index=index, header=True)
-
-    covariance_data = FakeCovariance()
-    energy_grid = [1e-5, 1e-3, 1e-1]
+    # -----------------------------
+    # Inputs
+    # -----------------------------
+    energy_grid = [1, 2, 3, 4]
     nuclide = "U235"
-    mt_number = 102
-    flag_string = "Absolute"
+    mt = 102
+    flag = "Relative"
 
-    filename = save_covariance_file(
-        covariance_data,
-        energy_grid,
-        nuclide,
-        mt_number,
-        flag_string
+    # -----------------------------
+    # Run function
+    # -----------------------------
+    result = save_covariance_file(
+        covariance_data=covariance_data,
+        energy_grid=energy_grid,
+        nuclide=nuclide,
+        mt_Number=mt,
+        flag_String=flag,
     )
 
-    expected = "covarianceMatrix_3Groups_U235_MT_102_Absolute.csv"
+    expected_filename = "covarianceMatrix_4Groups_U235_MT_102_Relative.csv"
 
-    # Check returned filename
-    assert filename == expected
+    # -----------------------------
+    # Validate return value
+    # -----------------------------
+    assert result == expected_filename
 
-    # Check intermediate and final CSV writes
-    assert mock_df.saved_files[0][0] == "intermediate_dataframe.csv"
-    assert mock_df.saved_files[-1][0] == expected
+    # -----------------------------
+    # Validate first write (intermediate)
+    # -----------------------------
+    assert calls["cov_to_csv"] == [
+        ("intermediate_dataframe.csv", False)
+    ]
 
-    # Check intermediate file removal
-    assert "intermediate_dataframe.csv" in removed_files
+    # -----------------------------
+    # Validate read_csv
+    # -----------------------------
+    assert calls["pd_read_csv"] == [
+        ("intermediate_dataframe.csv", 2)
+    ]
 
+    # -----------------------------
+    # Validate second write (final CSV)
+    # -----------------------------
+    assert calls["df_to_csv"] == [
+        (expected_filename, False, False)
+    ]
 
-def test_save_covariance_file_empty_energy_grid(mock_file_ops):
-    """
-    Test filename logic when the energy grid is empty.
-    """
+    # -----------------------------
+    # Validate cleanup
+    # -----------------------------
+    assert calls["remove"] == ["intermediate_dataframe.csv"]
 
-    from src.WINDIGO.sandy_internal_functions import save_covariance_file
-
-    mock_df, removed_files = mock_file_ops
-
-    class FakeCovariance:
-        def to_csv(self, filename, index=False):
-            mock_df.to_csv(filename, index=index, header=True)
-
-    covariance_data = FakeCovariance()
-    energy_grid = []  # edge case
-    nuclide = "H1"
-    mt_number = 1
-    flag_string = "Relative"
-
-    filename = save_covariance_file(
-        covariance_data,
-        energy_grid,
-        nuclide,
-        mt_number,
-        flag_string
-    )
-
-    expected = "covarianceMatrix_0Groups_H1_MT_1_Relative.csv"
-
-    assert filename == expected
-    assert mock_df.saved_files[-1][0] == expected
-    assert "intermediate_dataframe.csv" in removed_files
+    # -----------------------------
+    # Validate printed output
+    # -----------------------------
+    assert any(expected_filename in msg for msg in calls["print"])

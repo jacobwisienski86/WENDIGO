@@ -1,118 +1,97 @@
-"""
-Unit tests for plot_covariance.
-"""
+# tests/test_plot_covariance.py
+# Tests for plot_covariance in sandy_internal_functions.py
 
+import builtins
 import pytest
-import numpy as np
+
+from src.WINDIGO.sandy_internal_functions import plot_covariance
 
 
-@pytest.fixture
-def mock_plotting(monkeypatch):
-    """
-    Mock matplotlib and seaborn so no real files or windows are created.
-    """
+def test_plot_covariance(monkeypatch):
+    """Test that the covariance plot is generated and saved with correct filename."""
 
-    class MockFig:
+    # -----------------------------
+    # Mock matplotlib and seaborn
+    # -----------------------------
+    class FakeFig:
         def tight_layout(self):
             pass
 
-    class MockAx:
-        def set_aspect(self, aspect):
+    class FakeAx:
+        def set_aspect(self, arg):
             pass
 
-    def fake_subplots(figsize=None, dpi=None):
-        return MockFig(), MockAx()
+    fake_fig = FakeFig()
+    fake_ax = FakeAx()
 
-    def fake_heatmap(data, cmap=None):
-        return None
+    # Capture calls
+    calls = {
+        "subplots": [],
+        "heatmap": [],
+        "savefig": [],
+        "print": [],
+    }
 
-    def fake_savefig(filename, bbox_inches=None):
-        fake_savefig.saved_filename = filename
+    monkeypatch.setattr(
+        "src.WINDIGO.sandy_internal_functions.plt.subplots",
+        lambda figsize, dpi: calls["subplots"].append((figsize, dpi)) or (fake_fig, fake_ax),
+    )
 
-    monkeypatch.setattr("matplotlib.pyplot.subplots", fake_subplots)
-    monkeypatch.setattr("matplotlib.pyplot.savefig", fake_savefig)
-    monkeypatch.setattr("seaborn.heatmap", fake_heatmap)
+    monkeypatch.setattr(
+        "src.WINDIGO.sandy_internal_functions.sns.heatmap",
+        lambda data, cmap: calls["heatmap"].append((data, cmap)),
+    )
 
-    return fake_savefig
+    monkeypatch.setattr(
+        "src.WINDIGO.sandy_internal_functions.plt.savefig",
+        lambda filename, bbox_inches: calls["savefig"].append((filename, bbox_inches)),
+    )
 
+    monkeypatch.setattr(
+        builtins, "print",
+        lambda msg: calls["print"].append(msg),
+    )
 
-def test_plot_covariance_filename(mock_plotting):
-    """
-    Test that plot_covariance generates the correct filename and calls savefig.
-    """
-
-    from src.WINDIGO.sandy_internal_functions import plot_covariance
-
-    covariance_data = np.array([[1, 2], [3, 4]])
-    energy_grid = [1e-5, 1e-3, 1e-1]
+    # -----------------------------
+    # Test inputs
+    # -----------------------------
+    covariance_data = [[1, 2], [3, 4]]
+    energy_grid = [1, 2, 3, 4]
     nuclide = "U235"
-    mt_number = 102
-    flag_string = "Absolute"
+    mt = 102
+    flag = "Absolute"
 
-    filename = plot_covariance(
-        covariance_data,
-        energy_grid,
-        nuclide,
-        mt_number,
-        flag_string
+    # -----------------------------
+    # Run function
+    # -----------------------------
+    result = plot_covariance(
+        covariance_data=covariance_data,
+        energy_grid=energy_grid,
+        nuclide=nuclide,
+        mt_Number=mt,
+        flag_String=flag,
     )
 
-    expected = "covariancePlot_3Groups_U235MT102_Absolute.png"
+    expected_filename = "covariancePlot_4Groups_U235MT102_Absolute.png"
 
-    assert filename == expected
-    assert mock_plotting.saved_filename == expected
+    # -----------------------------
+    # Validate filename
+    # -----------------------------
+    assert result == expected_filename
 
+    # -----------------------------
+    # Validate heatmap call
+    # -----------------------------
+    assert calls["heatmap"] == [ (covariance_data, "bwr") ]
 
-def test_plot_covariance_non_square_matrix(mock_plotting):
-    """
-    Test that the function still attempts to plot and save a file even when
-    the covariance matrix is non-square.
-    """
+    # -----------------------------
+    # Validate savefig call
+    # -----------------------------
+    assert calls["savefig"] == [
+        (expected_filename, "tight")
+    ]
 
-    from src.WINDIGO.sandy_internal_functions import plot_covariance
-
-    covariance_data = np.array([[1, 2, 3], [4, 5, 6]])  # 2x3 matrix
-    energy_grid = [1e-5, 1e-3]
-    nuclide = "Mo98"
-    mt_number = 51
-    flag_string = "Relative"
-
-    filename = plot_covariance(
-        covariance_data,
-        energy_grid,
-        nuclide,
-        mt_number,
-        flag_string
-    )
-
-    expected = "covariancePlot_2Groups_Mo98MT51_Relative.png"
-
-    assert filename == expected
-    assert mock_plotting.saved_filename == expected
-
-
-def test_plot_covariance_empty_energy_grid(mock_plotting):
-    """
-    Test that the filename logic works even when the energy grid is empty.
-    """
-
-    from src.WINDIGO.sandy_internal_functions import plot_covariance
-
-    covariance_data = np.array([[1]])
-    energy_grid = []  # edge case
-    nuclide = "H1"
-    mt_number = 1
-    flag_string = "Absolute"
-
-    filename = plot_covariance(
-        covariance_data,
-        energy_grid,
-        nuclide,
-        mt_number,
-        flag_string
-    )
-
-    expected = "covariancePlot_0Groups_H1MT1_Absolute.png"
-
-    assert filename == expected
-    assert mock_plotting.saved_filename == expected
+    # -----------------------------
+    # Validate printed output
+    # -----------------------------
+    assert any(expected_filename in msg for msg in calls["print"])

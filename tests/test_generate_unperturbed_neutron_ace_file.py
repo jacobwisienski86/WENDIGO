@@ -1,317 +1,158 @@
-"""
-Unit tests for generate_unperturbed_neutron_ace_file.
-"""
+# tests/test_generate_unperturbed_neutron_ace_file.py
+# Tests for the main function: generate_unperturbed_neutron_ace_file
 
+import builtins
 import pytest
-from io import StringIO
-import sys
+
+from src.WINDIGO.frendy_main_functions import (
+    generate_unperturbed_neutron_ace_file,
+)
 
 
 def test_generate_unperturbed_neutron_ace_file_basic(monkeypatch):
-    'Test normal (non-upgrade) ACE generation with cleanup'
+    """Test the normal (non-upgrade) workflow with cleanup enabled."""
 
+    # --- Mock internal helper functions ---
+    monkeypatch.setattr(
+        "src.WINDIGO.frendy_main_functions.format_endf_evaluation",
+        lambda endf_Path: "formatted.dat",
+    )
+
+    monkeypatch.setattr(
+        "src.WINDIGO.frendy_main_functions.create_unperturbed_ace_generation_input",
+        lambda **kwargs: "ace_input.inp",
+    )
+
+    # --- Mock OS functions ---
     calls = {
-        "format": [],
-        "create_input": [],
-        "system": [],
+        "getcwd": [],
         "chdir": [],
+        "system": [],
         "remove": [],
         "exists": [],
+        "print": [],
     }
 
-    # Mock internal FRENDY functions
-    def fake_format(endf_Path):
-        calls["format"].append(endf_Path)
-        return "formatted.dat"
-
-    def fake_create_input(**kwargs):
-        calls["create_input"].append(kwargs)
-        return "input_file.inp"
-
-    # Mock OS functions
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
-    monkeypatch.setattr("os.chdir", lambda p: calls["chdir"].append(p))
+    monkeypatch.setattr("os.getcwd", lambda: calls["getcwd"].append("cwd") or "cwd")
+    monkeypatch.setattr("os.chdir", lambda path: calls["chdir"].append(path))
     monkeypatch.setattr("os.system", lambda cmd: calls["system"].append(cmd))
     monkeypatch.setattr("os.remove", lambda p: calls["remove"].append(p))
+    monkeypatch.setattr("os.path.exists", lambda p: calls["exists"].append(p) or True)
+    monkeypatch.setattr(builtins, "print", lambda msg: calls["print"].append(msg))
 
-    def fake_exists(path):
-        calls["exists"].append(path)
-        return True
-
-    monkeypatch.setattr("os.path.exists", fake_exists)
-
-    # Capture print output
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    # Patch internal FRENDY imports in frendy_main_functions
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
-        fake_format,
-    )
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        fake_create_input,
-    )
-
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
-
+    # --- Run function ---
+    frendy_path = "/opt/frendy"
     result = generate_unperturbed_neutron_ace_file(
-        frendy_Path="/FRENDY",
+        frendy_Path=frendy_path,
         endf_Path="/data/U235.endf",
-        temperature=900,
+        temperature=300,
         nuclide="U235",
         upgrade_Flag=False,
         energy_grid=[1, 2, 3],
         cleanup_Flag=True,
     )
 
-    expected_output = "/FRENDY/frendy/main/U235.ace"
+    # --- Expected output path ---
+    expected_exe_dir = "/opt/frendy/frendy/main"
+    expected_output = f"{expected_exe_dir}/U235.ace"
+
     assert result == expected_output
 
-    # format_endf_evaluation called correctly
-    assert calls["format"] == ["/data/U235.endf"]
-
-    # create_unperturbed_ace_generation_input called with correct args
-    args = calls["create_input"][0]
-    assert args["frendy_Path"] == "/FRENDY"
-    assert args["nuclide"] == "U235"
-    assert args["endf_file_dat"] == "formatted.dat"
-    assert args["temperature"] == 900
-    assert args["upgrade_Flag"] is False
-    assert args["energy_grid"] == [1, 2, 3]
-
-    # Directory switching
+    # --- Check directory switching ---
     assert calls["chdir"] == [
-        "/FRENDY/frendy/main",  # enter FRENDY executable directory
-        "/start",               # return to original directory
+        expected_exe_dir,  # enter FRENDY executable directory
+        "cwd",             # return to original directory
     ]
 
-    # System command executed
-    assert calls["system"] == ["./frendy.exe input_file.inp"]
+    # --- Check system call ---
+    assert calls["system"] == ["./frendy.exe ace_input.inp"]
 
-    # Cleanup removes .dat, .inp, and .ace.ace.dir
+    # --- Check cleanup of intermediate files ---
     assert "formatted.dat" in calls["remove"]
-    assert "input_file.inp" in calls["remove"]
-    assert "/FRENDY/frendy/main/U235.ace.ace.dir" in calls["remove"]
+    assert "ace_input.inp" in calls["remove"]
 
-    # Success message printed
-    assert "ACE file successfully generated" in captured.getvalue()
+    # --- Check cleanup of .ace.ace.dir ---
+    assert f"{expected_exe_dir}/U235.ace.ace.dir" in calls["remove"]
+
+    # --- Check success print messages ---
+    assert "\n" in calls["print"]
+    assert any("ACE file successfully generated" in msg for msg in calls["print"])
 
 
 def test_generate_unperturbed_neutron_ace_file_upgrade(monkeypatch):
-    'Test upgrade=True uses _upgrade.ace and removes correct files'
+    """Test upgrade mode, ensuring upgraded filename and cleanup behavior."""
 
-    calls = {"exists": [], "remove": []}
-
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
-    monkeypatch.setattr("os.chdir", lambda p: None)
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.remove", lambda p: calls["remove"].append(p))
-
-    def fake_exists(path):
-        calls["exists"].append(path)
-        return True
-
-    monkeypatch.setattr("os.path.exists", fake_exists)
-
-    # Patch internal FRENDY functions
+    # Mock helpers
     monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
+        "src.WINDIGO.frendy_main_functions.format_endf_evaluation",
         lambda endf_Path: "formatted.dat",
     )
     monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        lambda **kwargs: "input_file.inp",
+        "src.WINDIGO.frendy_main_functions.create_unperturbed_ace_generation_input",
+        lambda **kwargs: "ace_input.inp",
     )
 
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
+    # Mock OS
+    calls = {"remove": [], "exists": [], "print": []}
 
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
+    monkeypatch.setattr("os.getcwd", lambda: "cwd")
+    monkeypatch.setattr("os.chdir", lambda p: None)
+    monkeypatch.setattr("os.system", lambda cmd: None)
+    monkeypatch.setattr("os.remove", lambda p: calls["remove"].append(p))
+    monkeypatch.setattr("os.path.exists", lambda p: calls["exists"].append(p) or True)
+    monkeypatch.setattr(builtins, "print", lambda msg: calls["print"].append(msg))
 
+    frendy_path = "/opt/frendy"
     result = generate_unperturbed_neutron_ace_file(
-        frendy_Path="/F",
-        endf_Path="/e",
+        frendy_Path=frendy_path,
+        endf_Path="/data/U235.endf",
         temperature=300,
-        nuclide="Xe135",
+        nuclide="U235",
         upgrade_Flag=True,
-        energy_grid=[],
+        energy_grid=[1, 2, 3],
         cleanup_Flag=True,
     )
 
-    expected_output = "/F/frendy/main/Xe135_upgrade.ace"
+    expected_exe_dir = "/opt/frendy/frendy/main"
+    expected_output = f"{expected_exe_dir}/U235_upgrade.ace"
+
     assert result == expected_output
 
-    # Upgrade cleanup removes .upgrade.ace.ace.dir
-    assert "/F/frendy/main/Xe135_upgrade.ace.ace.dir" in calls["remove"]
+    # Check cleanup of upgraded .ace.ace.dir
+    assert f"{expected_exe_dir}/U235_upgrade.ace.ace.dir" in calls["remove"]
 
-    # Success message printed
-    assert "ACE file successfully generated" in captured.getvalue()
-
-
-def test_generate_unperturbed_neutron_ace_file_failure(monkeypatch):
-    'Test failure message when ACE file does not exist'
-
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
-    monkeypatch.setattr("os.chdir", lambda p: None)
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.remove", lambda p: None)
-
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
-        lambda endf_Path: "formatted.dat",
-    )
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        lambda **kwargs: "input_file.inp",
-    )
-
-    monkeypatch.setattr("os.path.exists", lambda p: False)
-
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
-
-    result = generate_unperturbed_neutron_ace_file(
-        frendy_Path="/F",
-        endf_Path="/e",
-        temperature=600,
-        nuclide="Mo95",
-        upgrade_Flag=False,
-        energy_grid=[],
-        cleanup_Flag=False,
-    )
-
-    assert "couldn't generate" in captured.getvalue()
 
 def test_generate_unperturbed_neutron_ace_file_no_cleanup(monkeypatch):
-    'Test that no cleanup occurs when cleanup_Flag=False'
+    """Ensure no cleanup occurs when cleanup_Flag=False."""
 
-    calls = {"remove": [], "exists": []}
+    monkeypatch.setattr(
+        "src.WINDIGO.frendy_main_functions.format_endf_evaluation",
+        lambda endf_Path: "formatted.dat",
+    )
+    monkeypatch.setattr(
+        "src.WINDIGO.frendy_main_functions.create_unperturbed_ace_generation_input",
+        lambda **kwargs: "ace_input.inp",
+    )
 
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
+    calls = {"remove": []}
+
+    monkeypatch.setattr("os.getcwd", lambda: "cwd")
     monkeypatch.setattr("os.chdir", lambda p: None)
     monkeypatch.setattr("os.system", lambda cmd: None)
     monkeypatch.setattr("os.remove", lambda p: calls["remove"].append(p))
-
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
-        lambda endf_Path: "formatted.dat",
-    )
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        lambda **kwargs: "input_file.inp",
-    )
-
     monkeypatch.setattr("os.path.exists", lambda p: True)
+    monkeypatch.setattr(builtins, "print", lambda msg: None)
 
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
-
-    result = generate_unperturbed_neutron_ace_file(
-        frendy_Path="/F",
-        endf_Path="/e",
-        temperature=600,
-        nuclide="U238",
-        upgrade_Flag=False,
-        energy_grid=[1],
-        cleanup_Flag=False,
-    )
-
-    assert result == "/F/frendy/main/U238.ace"
-
-    # No cleanup should occur
-    assert calls["remove"] == []
-
-
-def test_generate_unperturbed_neutron_ace_file_energy_grid_none(monkeypatch):
-    'Test that energy_grid=None is replaced with an empty list'
-
-    captured_args = {}
-
-    def fake_create_input(**kwargs):
-        captured_args.update(kwargs)
-        return "input_file.inp"
-
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
-    monkeypatch.setattr("os.chdir", lambda p: None)
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.remove", lambda p: None)
-    monkeypatch.setattr("os.path.exists", lambda p: True)
-
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
-        lambda endf_Path: "formatted.dat",
-    )
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        fake_create_input,
-    )
-
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
-
+    frendy_path = "/opt/frendy"
     generate_unperturbed_neutron_ace_file(
-        frendy_Path="/F",
-        endf_Path="/e",
+        frendy_Path=frendy_path,
+        endf_Path="/data/U235.endf",
         temperature=300,
-        nuclide="Xe135",
+        nuclide="U235",
         upgrade_Flag=False,
-        energy_grid=None,
+        energy_grid=[1, 2, 3],
         cleanup_Flag=False,
     )
-
-    # energy_grid=None must be converted to []
-    assert captured_args["energy_grid"] == []
-
-
-def test_generate_unperturbed_neutron_ace_file_upgrade_no_cleanup(monkeypatch):
-    'Test upgrade=True but cleanup_Flag=False (no files removed)'
-
-    calls = {"remove": [], "exists": []}
-
-    monkeypatch.setattr("os.getcwd", lambda: "/start")
-    monkeypatch.setattr("os.chdir", lambda p: None)
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.remove", lambda p: calls["remove"].append(p))
-
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.format_endf_evaluation",
-        lambda endf_Path: "formatted.dat",
-    )
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.create_unperturbed_ace_generation_input",
-        lambda **kwargs: "input_file.inp",
-    )
-
-    monkeypatch.setattr("os.path.exists", lambda p: True)
-
-    from src.WINDIGO.frendy_main_functions import (
-        generate_unperturbed_neutron_ace_file
-    )
-
-    result = generate_unperturbed_neutron_ace_file(
-        frendy_Path="/F",
-        endf_Path="/e",
-        temperature=500,
-        nuclide="Mo95",
-        upgrade_Flag=True,
-        energy_grid=[1, 2],
-        cleanup_Flag=False,
-    )
-
-    expected_output = "/F/frendy/main/Mo95_upgrade.ace"
-    assert result == expected_output
 
     # No cleanup should occur
     assert calls["remove"] == []

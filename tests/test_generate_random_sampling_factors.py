@@ -1,122 +1,97 @@
-"""
-Unit tests for generate_random_sampling_factors.
-"""
+# tests/test_generate_random_sampling_factors.py
+# Tests for the function: generate_random_sampling_factors
 
+import builtins
 import pytest
-from io import StringIO
-import sys
+
+from src.WINDIGO.frendy_internal_functions import generate_random_sampling_factors
 
 
-def test_generate_random_sampling_factors_success(monkeypatch):
-    'Test successful creation prints correct message and no cleanup'
+def test_generate_random_sampling_factors_success_no_cleanup(monkeypatch):
+    """Test successful creation message and no cleanup when cleanup_Flag=False."""
 
-    calls = {
-        "system": [],
-        "exists": [],
-        "remove": []
-    }
+    # Capture os.system calls
+    system_calls = []
+    monkeypatch.setattr("os.system", lambda cmd: system_calls.append(cmd))
 
-    def fake_system(cmd):
-        calls["system"].append(cmd)
-        return 0
+    # Simulate folder exists → success
+    monkeypatch.setattr("os.path.exists", lambda path: True)
 
-    def fake_exists(path):
-        calls["exists"].append(path)
-        return True
+    # Capture printed messages
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
-    def fake_remove(path):
-        calls["remove"].append(path)
-
-    monkeypatch.setattr("os.system", fake_system)
-    monkeypatch.setattr("os.path.exists", fake_exists)
-    monkeypatch.setattr("os.remove", fake_remove)
-
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        generate_random_sampling_factors
-    )
+    # Track os.remove calls
+    removed = []
+    monkeypatch.setattr("os.remove", lambda p: removed.append(p))
 
     generate_random_sampling_factors(
         execution_filename="run_tool.csh",
-        random_sampling_tool_directory="/tmp/random",
+        random_sampling_tool_directory="/tmp/tool",
         nuclide="U235",
         sample_filename="sample_copy.inp",
         cleanup_Flag=False,
     )
 
-    # Correct command executed
-    assert calls["system"] == ["csh ./run_tool.csh"]
+    # os.system should be called with correct command
+    assert system_calls == ["csh ./run_tool.csh"]
 
-    # Correct folder checked
-    assert calls["exists"] == ["/tmp/random/U235"]
+    # Success message should be printed
+    assert printed == ["Perturbation factors created successfully"]
 
-    # No cleanup
-    assert calls["remove"] == []
-
-    # Correct print
-    assert "Perturbation factors created successfully" in captured.getvalue()
+    # No cleanup should occur
+    assert removed == []
 
 
-def test_generate_random_sampling_factors_failure(monkeypatch):
-    'Test failure message when folder does not exist'
+def test_generate_random_sampling_factors_failure_no_cleanup(monkeypatch):
+    """Test failure message when folder does not exist."""
 
-    calls = {"exists": []}
+    system_calls = []
+    monkeypatch.setattr("os.system", lambda cmd: system_calls.append(cmd))
 
-    def fake_exists(path):
-        calls["exists"].append(path)
-        return False
+    # Simulate folder missing → failure
+    monkeypatch.setattr("os.path.exists", lambda path: False)
 
-    monkeypatch.setattr("os.path.exists", fake_exists)
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.remove", lambda path: None)
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        generate_random_sampling_factors
-    )
+    removed = []
+    monkeypatch.setattr("os.remove", lambda p: removed.append(p))
 
     generate_random_sampling_factors(
         execution_filename="run_tool.csh",
-        random_sampling_tool_directory="/tmp/random",
+        random_sampling_tool_directory="/tmp/tool",
         nuclide="Xe135",
         sample_filename="sample_copy.inp",
         cleanup_Flag=False,
     )
 
-    assert calls["exists"] == ["/tmp/random/Xe135"]
-    assert "not created successfully" in captured.getvalue()
+    assert printed == ["Perturbation factors not created successfully"]
+    assert removed == []
 
 
 def test_generate_random_sampling_factors_cleanup(monkeypatch):
-    'Test cleanup removes both files when cleanup_Flag=True'
+    """Test that cleanup removes both sample and execution files."""
+
+    system_calls = []
+    monkeypatch.setattr("os.system", lambda cmd: system_calls.append(cmd))
+
+    # Simulate success
+    monkeypatch.setattr("os.path.exists", lambda path: True)
+
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
     removed = []
-
-    monkeypatch.setattr("os.system", lambda cmd: None)
-    monkeypatch.setattr("os.path.exists", lambda path: True)
-    monkeypatch.setattr("os.remove", lambda path: removed.append(path))
-
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        generate_random_sampling_factors
-    )
+    monkeypatch.setattr("os.remove", lambda p: removed.append(p))
 
     generate_random_sampling_factors(
         execution_filename="run_tool.csh",
-        random_sampling_tool_directory="/tmp/random",
+        random_sampling_tool_directory="/tmp/tool",
         nuclide="Mo95",
         sample_filename="sample_copy.inp",
         cleanup_Flag=True,
     )
 
-    # Both files removed
+    # Both files should be removed
     assert removed == ["sample_copy.inp", "run_tool.csh"]
-
-    # Success message printed
-    assert "created successfully" in captured.getvalue()

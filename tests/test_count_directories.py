@@ -1,15 +1,13 @@
-"""
-Unit tests for count_directories.
-"""
+# tests/test_count_directories.py
+# Tests for count_directories in openmc_internal_functions.py
 
 import pytest
 
+from src.WINDIGO.openmc_internal_functions import count_directories
 
-class MockDirEntry:
-    """
-    Simple mock for os.DirEntry objects.
-    """
 
+class FakeDirEntry:
+    """Simple fake object to mimic os.DirEntry."""
     def __init__(self, path, is_dir):
         self.path = path
         self._is_dir = is_dir
@@ -18,90 +16,63 @@ class MockDirEntry:
         return self._is_dir
 
 
-@pytest.fixture
-def mock_scandir(monkeypatch):
-    """
-    Fixture to mock os.scandir with a custom list of entries.
-    """
-
-    def _mock(entries):
-        def fake_scandir(path):
-            for entry in entries:
-                yield entry
-
-        monkeypatch.setattr("os.scandir", fake_scandir)
-
-    return _mock
-
-
-def test_count_directories_basic(mock_scandir):
-    """
-    Count only directories and skip files.
-    """
-
-    from src.WINDIGO.openmc_internal_functions import count_directories
+def test_count_directories_basic(monkeypatch):
+    """Count only directories, skipping any with 'input' in the path."""
 
     entries = [
-        MockDirEntry("folderA", True),
-        MockDirEntry("file.txt", False),
-        MockDirEntry("folderB", True),
+        FakeDirEntry("/path/0001", True),
+        FakeDirEntry("/path/0002", True),
+        FakeDirEntry("/path/input_files", True),     # should be skipped
+        FakeDirEntry("/path/0003", False),           # file, not directory
+        FakeDirEntry("/path/INPUT_extra", True),     # should be skipped (case-insensitive)
     ]
 
-    mock_scandir(entries)
+    monkeypatch.setattr("os.scandir", lambda p: entries)
 
-    result = count_directories("/fake/path")
-    assert result == 2
+    result = count_directories("/path")
+    assert result == 2  # only 0001 and 0002
 
 
-def test_count_directories_skips_input_dirs(mock_scandir):
-    """
-    Directories containing 'Input' or 'input' should be skipped.
-    """
-
-    from src.WINDIGO.openmc_internal_functions import count_directories
+def test_count_directories_no_directories(monkeypatch):
+    """Return 0 when no valid directories exist."""
 
     entries = [
-        MockDirEntry("Input_Files", True),
-        MockDirEntry("folder1", True),
-        MockDirEntry("myinputdata", True),
-        MockDirEntry("folder2", True),
+        FakeDirEntry("/path/file1", False),
+        FakeDirEntry("/path/file2", False),
+        FakeDirEntry("/path/input_data", False),
     ]
 
-    mock_scandir(entries)
+    monkeypatch.setattr("os.scandir", lambda p: entries)
 
-    result = count_directories("/fake/path")
-    assert result == 2  # only folder1 and folder2 count
-
-
-def test_count_directories_empty(mock_scandir):
-    """
-    No directories should return 0.
-    """
-
-    from src.WINDIGO.openmc_internal_functions import count_directories
-
-    entries = []
-    mock_scandir(entries)
-
-    result = count_directories("/fake/path")
+    result = count_directories("/path")
     assert result == 0
 
 
-def test_count_directories_mixed_case_input(mock_scandir):
-    """
-    Ensure case-insensitive matching for 'Input' directories.
-    """
-
-    from src.WINDIGO.openmc_internal_functions import count_directories
+def test_count_directories_all_filtered(monkeypatch):
+    """All directories contain 'input' → count should be 0."""
 
     entries = [
-        MockDirEntry("InPuT_folder", True),
-        MockDirEntry("folderX", True),
-        MockDirEntry("INPUT_data", True),
-        MockDirEntry("folderY", True),
+        FakeDirEntry("/path/input1", True),
+        FakeDirEntry("/path/INPUT2", True),
+        FakeDirEntry("/path/inPut3", True),
     ]
 
-    mock_scandir(entries)
+    monkeypatch.setattr("os.scandir", lambda p: entries)
 
-    result = count_directories("/fake/path")
+    result = count_directories("/path")
+    assert result == 0
+
+
+def test_count_directories_mixed_case(monkeypatch):
+    """Ensure case-insensitive filtering of 'input' works correctly."""
+
+    entries = [
+        FakeDirEntry("/path/0001", True),
+        FakeDirEntry("/path/InPuT_folder", True),  # should be skipped
+        FakeDirEntry("/path/0002", True),
+    ]
+
+    monkeypatch.setattr("os.scandir", lambda p: entries)
+
+    result = count_directories("/path")
     assert result == 2

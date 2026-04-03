@@ -1,139 +1,115 @@
-"""
-Unit tests for direct_perturbation_folder_check.
-"""
+# tests/test_direct_perturbation_folder_check.py
+# Tests for the function: direct_perturbation_folder_check
 
 import pytest
 
+from src.WINDIGO.frendy_internal_functions import direct_perturbation_folder_check
 
-def test_direct_perturbation_folder_check_all_present(monkeypatch):
-    'Test when all expected folders exist'
 
-    calls = []
+def test_direct_perturbation_folder_check_all_exist(monkeypatch):
+    """All expected folders exist → return False."""
+
+    # Capture which paths are checked
+    checked_paths = []
 
     def fake_exists(path):
-        calls.append(path)
+        checked_paths.append(path)
         return True
 
     monkeypatch.setattr("os.path.exists", fake_exists)
 
-    from src.WINDIGO.frendy_internal_functions import (
-        direct_perturbation_folder_check
-    )
+    energy_grid = [1.0, 2.0, 3.0]  # 2 intervals → 0001, 0002
+    base = "/perturbed"
 
-    result = direct_perturbation_folder_check(
-        perturbed_ace_folder_path="/data/perturbed",
-        energy_grid=[1.0, 2.0, 3.0, 4.0],
-    )
+    result = direct_perturbation_folder_check(base, energy_grid)
 
     assert result is False
-
-    # Expected folders: 0001, 0002, 0003
-    assert calls == [
-        "/data/perturbed/0001",
-        "/data/perturbed/0002",
-        "/data/perturbed/0003",
+    assert checked_paths == [
+        "/perturbed/0001",
+        "/perturbed/0002",
     ]
 
 
-def test_direct_perturbation_folder_check_first_missing(monkeypatch):
-    'Test when the first folder is missing'
+def test_direct_perturbation_folder_check_missing_folder(monkeypatch):
+    """If any folder is missing, return True and stop checking further."""
+
+    checked_paths = []
 
     def fake_exists(path):
-        return False  # first check fails immediately
+        checked_paths.append(path)
+        # First exists, second missing
+        return path.endswith("0001")
 
     monkeypatch.setattr("os.path.exists", fake_exists)
 
-    from src.WINDIGO.frendy_internal_functions import (
-        direct_perturbation_folder_check
-    )
+    energy_grid = [1.0, 2.0, 3.0]  # 2 intervals
+    base = "/perturbed"
 
-    result = direct_perturbation_folder_check(
-        perturbed_ace_folder_path="/out",
-        energy_grid=[1.0, 2.0],
-    )
+    result = direct_perturbation_folder_check(base, energy_grid)
 
     assert result is True
+    # Should stop after the missing folder
+    assert checked_paths == [
+        "/perturbed/0001",
+        "/perturbed/0002",
+    ]
 
 
-def test_direct_perturbation_folder_check_middle_missing(monkeypatch):
-    'Test when a middle folder is missing'
+def test_direct_perturbation_folder_check_padding_ranges(monkeypatch):
+    """Verify correct folder naming for <9, 9–98, and ≥99 index ranges."""
 
-    def fake_exists(path):
-        # Missing the second folder only
-        return not path.endswith("0002")
+    monkeypatch.setattr("os.path.exists", lambda path: True)
 
-    monkeypatch.setattr("os.path.exists", fake_exists)
+    # 101 intervals → indices 0–100
+    energy_grid = list(range(102))
+    base = "/perturbed"
 
-    from src.WINDIGO.frendy_internal_functions import (
-        direct_perturbation_folder_check
-    )
+    direct_perturbation_folder_check(base, energy_grid)
 
-    result = direct_perturbation_folder_check(
-        perturbed_ace_folder_path="/out",
-        energy_grid=[1.0, 2.0, 3.0],
-    )
+    # Build expected folder names
+    expected = []
+    for ii in range(101):
+        if ii < 9:
+            expected.append(f"{base}/000{ii+1}")
+        elif 9 <= ii <= 98:
+            expected.append(f"{base}/00{ii+1}")
+        else:
+            expected.append(f"{base}/0{ii+1}")
 
-    assert result is True
-
-
-def test_direct_perturbation_folder_check_three_digit_format(monkeypatch):
-    'Test folder naming for indices 9–98 (00XX formatting)'
-
+    # Now verify that os.path.exists was called with these paths
+    # We capture calls by wrapping exists
     calls = []
 
-    def fake_exists(path):
+    def capture_exists(path):
         calls.append(path)
         return True
 
-    monkeypatch.setattr("os.path.exists", fake_exists)
+    monkeypatch.setattr("os.path.exists", capture_exists)
 
-    from src.WINDIGO.frendy_internal_functions import (
-        direct_perturbation_folder_check
-    )
+    direct_perturbation_folder_check(base, energy_grid)
 
-    # 11 intervals → indices 0–10 → triggers 000X and 00XX formatting
-    energy_grid = list(range(12))
-
-    result = direct_perturbation_folder_check(
-        perturbed_ace_folder_path="/pert",
-        energy_grid=energy_grid,
-    )
-
-    assert result is False
-
-    # Check boundary formatting
-    assert calls[0].endswith("/0001")
-    assert calls[8].endswith("/0009")
-    assert calls[9].endswith("/0010")
-    assert calls[10].endswith("/0011")
+    assert calls == expected
 
 
-def test_direct_perturbation_folder_check_large_index(monkeypatch):
-    'Test folder naming for ii > 98 (0XXX formatting)'
+def test_direct_perturbation_folder_check_single_interval(monkeypatch):
+    """A grid with one interval should check exactly one folder."""
 
-    calls = []
+    checked = []
+    monkeypatch.setattr("os.path.exists", lambda p: checked.append(p) or True)
 
-    def fake_exists(path):
-        calls.append(path)
-        return True
+    energy_grid = [10.0, 20.0]  # 1 interval → 0001
+    base = "/perturbed"
 
-    monkeypatch.setattr("os.path.exists", fake_exists)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        direct_perturbation_folder_check
-    )
-
-    # 105 intervals → index 99 triggers the final formatting branch
-    energy_grid = list(range(106))
-
-    result = direct_perturbation_folder_check(
-        perturbed_ace_folder_path="/big",
-        energy_grid=energy_grid,
-    )
+    result = direct_perturbation_folder_check(base, energy_grid)
 
     assert result is False
+    assert checked == ["/perturbed/0001"]
 
-    # Check formatting around the transition
-    assert calls[98].endswith("/0099")
-    assert calls[99].endswith("/0100")
-    assert calls[104].endswith("/0105")
+
+def test_direct_perturbation_folder_check_empty_grid(monkeypatch):
+    """Empty or single-point grid → no intervals → no checks → return False."""
+
+    monkeypatch.setattr("os.path.exists", lambda p: True)
+
+    assert direct_perturbation_folder_check("/perturbed", []) is False
+    assert direct_perturbation_folder_check("/perturbed", [1.0]) is False

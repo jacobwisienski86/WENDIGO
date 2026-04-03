@@ -1,147 +1,106 @@
-"""
-Unit tests for create_random_sampling_pert_list.
-"""
+# tests/test_create_random_sampling_pert_list.py
+# Tests for the function: create_random_sampling_pert_list
 
+import builtins
 import pytest
 
-
-class FakeFile:
-    'Simple context-manager file mock that records written lines'
-
-    def __init__(self, written_dict, path):
-        self.written_dict = written_dict
-        self.path = path
-        self.buffer = []
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.written_dict[self.path] = self.buffer
-        return False
-
-    def writelines(self, lines):
-        self.buffer.extend(lines)
-
-    def close(self):
-        pass
+from src.WINDIGO.frendy_internal_functions import (
+    create_random_sampling_pert_list,
+)
 
 
 def test_create_random_sampling_pert_list_basic(monkeypatch):
-    'Test basic list creation and filename correctness'
+    """Test correct filename and contents for a small sample size."""
 
-    written = {}
+    written_path = None
+    written_lines = []
 
-    def fake_open(path, mode):
-        return FakeFile(written, path)
+    class FakeFile:
+        def __init__(self, path, mode):
+            nonlocal written_path
+            written_path = path
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __enter__(self):
+            return self
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_pert_list
-    )
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    nuclide = "U235"
+    mt = 102
+    directory = "U235_RandomSamplingInputs"
+    sample_size = 3
 
     result = create_random_sampling_pert_list(
-        nuclide="U235",
-        mt_Number=102,
-        new_inputs_directory_name="/opt/frendy/U235_inputs",
-        sample_size=3,
+        nuclide,
+        mt,
+        directory,
+        sample_size,
     )
 
     expected_filename = "perturbation_list_U235_MT_102.inp"
     assert result == expected_filename
-    assert expected_filename in written
+    assert written_path == expected_filename
 
-    lines = written[expected_filename]
-
-    assert lines == [
-        "/opt/frendy/U235_inputs/U235_0001\n",
-        "/opt/frendy/U235_inputs/U235_0002\n",
-        "/opt/frendy/U235_inputs/U235_0003\n",
+    expected_lines = [
+        f"{directory}/U235_0001\n",
+        f"{directory}/U235_0002\n",
+        f"{directory}/U235_0003\n",
     ]
 
+    assert written_lines == expected_lines
 
-def test_create_random_sampling_pert_list_three_digit_format(monkeypatch):
-    'Test correct formatting for ii >= 9 (00XX formatting)'
 
-    written = {}
+def test_create_random_sampling_pert_list_padding(monkeypatch):
+    """Test correct zero-padding for indices <9, 9–98, and ≥99."""
 
-    def fake_open(path, mode):
-        return FakeFile(written, path)
+    written_lines = []
 
-    monkeypatch.setattr("builtins.open", fake_open)
+    class FakeFile:
+        def __init__(self, path, mode):
+            pass
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_pert_list
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    nuclide = "X"
+    mt = 1
+    directory = "X_Random"
+    sample_size = 105  # covers all padding ranges
+
+    create_random_sampling_pert_list(
+        nuclide,
+        mt,
+        directory,
+        sample_size,
     )
 
-    # 11 entries → indices 0–10 → triggers 000X and 00XX formatting
-    result = create_random_sampling_pert_list(
-        nuclide="Xe135",
-        mt_Number=51,
-        new_inputs_directory_name="/data/x",
-        sample_size=11,
-    )
+    # Extract filenames without newline
+    filenames = [line.strip() for line in written_lines]
 
-    lines = written[result]
-
-    assert lines[0].endswith("Xe135_0001\n")
-    assert lines[8].endswith("Xe135_0009\n")
-    assert lines[9].endswith("Xe135_0010\n")
-    assert lines[10].endswith("Xe135_0011\n")
-
-
-def test_create_random_sampling_pert_list_large_index(monkeypatch):
-    'Test correct formatting for ii > 98 (0XXX formatting)'
-
-    written = {}
-
-    def fake_open(path, mode):
-        return FakeFile(written, path)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_pert_list
-    )
-
-    # 105 entries → index 99 triggers the final formatting branch
-    result = create_random_sampling_pert_list(
-        nuclide="Mo95",
-        mt_Number=18,
-        new_inputs_directory_name="/inputs",
-        sample_size=105,
-    )
-
-    lines = written[result]
-
-    assert lines[98].endswith("Mo95_0099\n")
-    assert lines[99].endswith("Mo95_0100\n")
-    assert lines[104].endswith("Mo95_0105\n")
-
-
-def test_create_random_sampling_pert_list_varied_inputs(monkeypatch):
-    'Test arbitrary directory and nuclide names'
-
-    written = {}
-
-    def fake_open(path, mode):
-        return FakeFile(written, path)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_pert_list
-    )
-
-    result = create_random_sampling_pert_list(
-        nuclide="Th232",
-        mt_Number=4,
-        new_inputs_directory_name="/tmp/random_inputs",
-        sample_size=2,
-    )
-
-    lines = written[result]
-
-    assert lines[0] == "/tmp/random_inputs/Th232_0001\n"
-    assert lines[1] == "/tmp/random_inputs/Th232_0002\n"
+    # Check padding rules
+    assert filenames[0].endswith("X_0001")      # ii = 0
+    assert filenames[8].endswith("X_0009")      # ii = 8
+    assert filenames[9].endswith("X_0010")      # ii = 9
+    assert filenames[98].endswith("X_0099")     # ii = 98
+    assert filenames[99].endswith("X_0100")     # ii = 99
+    assert filenames[104].endswith("X_0105")    # ii = 104

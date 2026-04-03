@@ -1,13 +1,13 @@
-"""
-Unit tests for create_unperturbed_library.
-"""
+# tests/test_create_unperturbed_library.py
+# Tests for create_unperturbed_library in openmc_internal_functions.py
 
 import pytest
 
+from src.WINDIGO.openmc_internal_functions import create_unperturbed_library
 
-class MockDataLibrary:
-    """Mock replacement for openmc.data.DataLibrary."""
 
+class FakeLibrary:
+    """Fake replacement for openmc.data.DataLibrary."""
     def __init__(self):
         self.registered = []
 
@@ -15,103 +15,126 @@ class MockDataLibrary:
         self.registered.append(filename)
 
 
-@pytest.fixture
-def mock_openmc(monkeypatch):
-    """Mock openmc.data.DataLibrary so no real OpenMC is used."""
+def test_create_unperturbed_library_basic(monkeypatch):
+    """Test that matching .h5 files are registered correctly."""
 
-    mock_lib = MockDataLibrary()
+    # -----------------------------
+    # Fake directory contents
+    # -----------------------------
+    neutron_files = [
+        "H1.h5",
+        "U235.h5",
+        "U235.txt",      # wrong extension
+        "C12.h5",
+    ]
 
-    class MockOpenMCData:
-        DataLibrary = lambda self=None: mock_lib
+    tsl_files = [
+        "HH2O.h5",
+        "graphite.h5",
+        "HH2O.txt",      # wrong extension
+    ]
 
-    monkeypatch.setattr("openmc.data", MockOpenMCData())
-
-    return mock_lib
-
-
-@pytest.fixture
-def mock_listdir(monkeypatch):
-    """Mock os.listdir with custom directory contents."""
-
-    def _mock(path_to_contents):
-        def fake_listdir(path):
-            return path_to_contents[path]
-        monkeypatch.setattr("os.listdir", fake_listdir)
-
-    return _mock
-
-
-def test_create_unperturbed_library_basic(mock_openmc, mock_listdir):
-    """
-    Ensure neutron and TSL files are correctly registered.
-    """
-
-    from src.WINDIGO.openmc_internal_functions import create_unperturbed_library
-
-    mock_listdir({
-        "/neutrons": ["H1.h5", "U235.h5", "junk.txt"],
-        "/tsl": ["c_H_in_H2O.h5", "c_O_in_H2O.h5"]
-    })
-
-    lib = create_unperturbed_library(
-        neutron_sublibrary_path="/neutrons",
-        unperturbed_nuclide_list=["H1", "U235"],
-        thermal_scatter_sublibrary_path="/tsl",
-        unperturbed_TSL_list=["c_H_in_H2O", "c_O_in_H2O"]
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.os.listdir",
+        lambda path: neutron_files if "neutron" in path else tsl_files,
     )
 
-    assert set(lib.registered) == {
-        "/neutrons/H1.h5",
-        "/neutrons/U235.h5",
-        "/tsl/c_H_in_H2O.h5",
-        "/tsl/c_O_in_H2O.h5"
-    }
+    # -----------------------------
+    # Fake DataLibrary
+    # -----------------------------
+    fake_lib = FakeLibrary()
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.openmc.data.DataLibrary",
+        lambda: fake_lib,
+    )
+
+    # -----------------------------
+    # Inputs
+    # -----------------------------
+    neutron_path = "/data/neutron"
+    tsl_path = "/data/tsl"
+
+    unperturbed_nuclides = ["H1", "U235"]
+    unperturbed_tsls = ["HH2O"]
+
+    # -----------------------------
+    # Run function
+    # -----------------------------
+    result = create_unperturbed_library(
+        neutron_sublibrary_path=neutron_path,
+        unperturbed_nuclide_list=unperturbed_nuclides,
+        thermal_scatter_sublibrary_path=tsl_path,
+        unperturbed_TSL_list=unperturbed_tsls,
+    )
+
+    # -----------------------------
+    # Validate returned object
+    # -----------------------------
+    assert result is fake_lib
+
+    # -----------------------------
+    # Validate registered files
+    # -----------------------------
+    expected = [
+        "/data/neutron/H1.h5",
+        "/data/neutron/U235.h5",
+        "/data/tsl/HH2O.h5",
+    ]
+
+    assert fake_lib.registered == expected
 
 
-def test_create_unperturbed_library_no_matches(mock_openmc, mock_listdir):
-    """
-    If no files match, nothing should be registered.
-    """
+def test_create_unperturbed_library_no_matches(monkeypatch):
+    """If no files match, nothing should be registered."""
 
-    from src.WINDIGO.openmc_internal_functions import create_unperturbed_library
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.os.listdir",
+        lambda path: ["file1.txt", "file2.dat"],
+    )
 
-    mock_listdir({
-        "/neutrons": ["A.h5", "B.h5"],
-        "/tsl": ["X.h5"]
-    })
+    fake_lib = FakeLibrary()
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.openmc.data.DataLibrary",
+        lambda: fake_lib,
+    )
 
-    lib = create_unperturbed_library(
-        neutron_sublibrary_path="/neutrons",
+    result = create_unperturbed_library(
+        neutron_sublibrary_path="/neutron",
         unperturbed_nuclide_list=["H1"],
         thermal_scatter_sublibrary_path="/tsl",
-        unperturbed_TSL_list=["c_H_in_H2O"]
+        unperturbed_TSL_list=["HH2O"],
     )
 
-    assert lib.registered == []
+    assert result is fake_lib
+    assert fake_lib.registered == []
 
 
-def test_create_unperturbed_library_multiple_matches(mock_openmc, mock_listdir):
-    """
-    Ensure all matching files are registered, not just the last one.
-    """
+def test_create_unperturbed_library_multiple_matches(monkeypatch):
+    """Ensure multiple matching files for a nuclide are all registered."""
 
-    from src.WINDIGO.openmc_internal_functions import create_unperturbed_library
+    neutron_files = ["U235_1.h5", "U235_2.h5", "U235_extra.txt"]
+    tsl_files = []
 
-    mock_listdir({
-        "/neutrons": ["H1_1.h5", "H1_2.h5", "H1_extra.txt"],
-        "/tsl": ["c_H_in_H2O_1.h5", "c_H_in_H2O_2.h5"]
-    })
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.os.listdir",
+        lambda path: neutron_files if "neutron" in path else tsl_files,
+    )
 
-    lib = create_unperturbed_library(
-        neutron_sublibrary_path="/neutrons",
-        unperturbed_nuclide_list=["H1"],
+    fake_lib = FakeLibrary()
+    monkeypatch.setattr(
+        "src.WINDIGO.openmc_internal_functions.openmc.data.DataLibrary",
+        lambda: fake_lib,
+    )
+
+    result = create_unperturbed_library(
+        neutron_sublibrary_path="/neutron",
+        unperturbed_nuclide_list=["U235"],
         thermal_scatter_sublibrary_path="/tsl",
-        unperturbed_TSL_list=["c_H_in_H2O"]
+        unperturbed_TSL_list=[],
     )
 
-    assert set(lib.registered) == {
-        "/neutrons/H1_1.h5",
-        "/neutrons/H1_2.h5",
-        "/tsl/c_H_in_H2O_1.h5",
-        "/tsl/c_H_in_H2O_2.h5"
-    }
+    assert result is fake_lib
+    assert fake_lib.registered == [
+        "/neutron/U235_1.h5",
+        "/neutron/U235_2.h5",
+    ]

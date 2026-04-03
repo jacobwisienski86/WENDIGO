@@ -1,141 +1,151 @@
-"""
-Unit tests for create_direct_perturbation_inputs.
-"""
+# tests/test_create_direct_perturbation_inputs.py
+# Tests for the function: create_direct_perturbation_inputs
 
+import builtins
 import pytest
 
-
-class FakeFile:
-    'Simple context-manager file mock that records written content'
-
-    def __init__(self, path, written_dict):
-        self.path = path
-        self.written_dict = written_dict
-        self.buffer = ""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.written_dict[self.path] = self.buffer
-        return False
-
-    def write(self, text):
-        self.buffer += text
-
-    def close(self):
-        pass
+from src.WINDIGO.frendy_internal_functions import create_direct_perturbation_inputs
 
 
 def test_create_direct_perturbation_inputs_basic(monkeypatch):
-    'Test basic file creation and naming for small energy grid'
+    """Test correct folder name, file names, and file contents for a small grid."""
 
+    # Capture mkdir calls
     created_dirs = []
+    monkeypatch.setattr("os.mkdir", lambda path: created_dirs.append(path))
+
+    # Capture file writes
     written_files = {}
 
-    monkeypatch.setattr(
-        "os.mkdir",
-        lambda folder: created_dirs.append(folder)
-    )
+    class FakeFile:
+        def __init__(self, path, mode):
+            self.path = path
+            written_files[self.path] = ""
 
-    def fake_open(path, mode):
-        return FakeFile(path, written_files)
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __exit__(self, exc_type, exc, tb):
+            return False
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_direct_perturbation_inputs
-    )
+        def write(self, text):
+            written_files[self.path] += text
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
 
     energy_grid = [1.0, 2.0, 3.0]
-    mt = 102
-    nuclide = "U235"
+    perturb_coeff = 1.05
 
     perturb_list, folder_name = create_direct_perturbation_inputs(
-        nuclide=nuclide,
-        mt_Number=mt,
+        nuclide="U235",
+        mt_Number=102,
         energy_grid=energy_grid,
-        perturbation_coefficient=1.05,
+        perturbation_coefficient=perturb_coeff,
     )
 
-    # Folder name
-    assert folder_name == "U235_DirectPerturbationInputs_ReactionMT_102"
-    assert created_dirs == [folder_name]
+    expected_folder = "U235_DirectPerturbationInputs_ReactionMT_102"
+    assert folder_name == expected_folder
+    assert created_dirs == [expected_folder]
 
-    # Two intervals → two files
-    assert len(perturb_list) == 2
+    # Expected filenames (2 intervals → 2 files)
+    expected_files = [
+        f"{expected_folder}/U235_0001",
+        f"{expected_folder}/U235_0002",
+    ]
 
-    # Check filenames
-    assert perturb_list[0] == f"{folder_name}/U235_0001\n"
-    assert perturb_list[1] == f"{folder_name}/U235_0002\n"
+    # Returned list should contain filenames with newline
+    assert perturb_list == [f"{name}\n" for name in expected_files]
 
-    # Check file contents
-    assert written_files[f"{folder_name}/U235_0001"] == "102     1.0     2.0     1.05"
-    assert written_files[f"{folder_name}/U235_0002"] == "102     2.0     3.0     1.05"
+    # File contents should match MT, lower bound, upper bound, coefficient
+    assert written_files[expected_files[0]] == "102     1.0     2.0     1.05"
+    assert written_files[expected_files[1]] == "102     2.0     3.0     1.05"
 
 
-def test_create_direct_perturbation_inputs_three_digit_index(monkeypatch):
-    'Test filename formatting for ii >= 9 (00XX formatting)'
+def test_create_direct_perturbation_inputs_padding_ranges(monkeypatch):
+    """Test filename padding logic for indices <9, 9–98, and ≥99."""
 
-    created_dirs = []
+    monkeypatch.setattr("os.mkdir", lambda path: None)
+
+    class FakeFile:
+        def __init__(self, path, mode):
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def write(self, text):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    # Construct a grid with 101 intervals → indices 0–100
+    energy_grid = list(range(102))
+
+    perturb_list, folder_name = create_direct_perturbation_inputs(
+        nuclide="X",
+        mt_Number=1,
+        energy_grid=energy_grid,
+        perturbation_coefficient=1.0,
+    )
+
+    # Extract filenames without newline
+    filenames = [line.strip() for line in perturb_list]
+
+    # Check padding rules
+    assert filenames[0].endswith("X_0001")      # ii = 0
+    assert filenames[8].endswith("X_0009")      # ii = 8
+    assert filenames[9].endswith("X_0010")      # ii = 9
+    assert filenames[98].endswith("X_0099")     # ii = 98
+    assert filenames[99].endswith("X_0100")     # ii = 99
+    assert filenames[100].endswith("X_0101")    # ii = 100
+
+
+def test_create_direct_perturbation_inputs_single_interval(monkeypatch):
+    """A grid with only one interval should produce exactly one file."""
+
+    monkeypatch.setattr("os.mkdir", lambda path: None)
+
     written_files = {}
 
-    monkeypatch.setattr("os.mkdir", lambda folder: created_dirs.append(folder))
+    class FakeFile:
+        def __init__(self, path, mode):
+            self.path = path
+            written_files[self.path] = ""
 
-    def fake_open(path, mode):
-        return FakeFile(path, written_files)
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __exit__(self, exc_type, exc, tb):
+            return False
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_direct_perturbation_inputs
-    )
+        def write(self, text):
+            written_files[self.path] = text
 
-    # 11 intervals → indices 0–10 → triggers 000X and 00XX formatting
-    energy_grid = list(range(12))
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    energy_grid = [10.0, 20.0]
 
     perturb_list, folder_name = create_direct_perturbation_inputs(
-        nuclide="Xe135",
-        mt_Number=18,
+        nuclide="Fe56",
+        mt_Number=51,
         energy_grid=energy_grid,
         perturbation_coefficient=0.9,
     )
 
-    # Check formatting around the boundary
-    assert perturb_list[0].endswith("Xe135_0001\n")
-    assert perturb_list[8].endswith("Xe135_0009\n")
-    assert perturb_list[9].endswith("Xe135_0010\n")
-    assert perturb_list[10].endswith("Xe135_0011\n")
+    expected_folder = "Fe56_DirectPerturbationInputs_ReactionMT_51"
+    assert folder_name == expected_folder
 
-
-def test_create_direct_perturbation_inputs_large_index(monkeypatch):
-    'Test filename formatting for ii > 98 (0XXX formatting)'
-
-    created_dirs = []
-    written_files = {}
-
-    monkeypatch.setattr("os.mkdir", lambda folder: created_dirs.append(folder))
-
-    def fake_open(path, mode):
-        return FakeFile(path, written_files)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_direct_perturbation_inputs
-    )
-
-    # 105 intervals → index 99 triggers the final formatting branch
-    energy_grid = list(range(106))
-
-    perturb_list, folder_name = create_direct_perturbation_inputs(
-        nuclide="Mo95",
-        mt_Number=51,
-        energy_grid=energy_grid,
-        perturbation_coefficient=1.2,
-    )
-
-    # Check the last few filenames
-    assert perturb_list[98].endswith("Mo95_0099\n")
-    assert perturb_list[99].endswith("Mo95_0100\n")
-    assert perturb_list[104].endswith("Mo95_0105\n")
+    expected_file = f"{expected_folder}/Fe56_0001"
+    assert perturb_list == [expected_file + "\n"]

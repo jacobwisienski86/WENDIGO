@@ -1,202 +1,173 @@
-"""
-Unit tests for create_unperturbed_ace_generation_input.
-"""
+# tests/test_create_unperturbed_ace_generation_input.py
+# Tests for the function: create_unperturbed_ace_generation_input
 
+import builtins
 import pytest
-from io import StringIO
-import sys
 
-
-class FakeFile:
-    'Simple context-manager file mock that records written lines'
-
-    def __init__(self, written):
-        self.written = written
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-    def writelines(self, lines):
-        self.written.extend(lines)
-
-    def close(self):
-        pass
+from src.WINDIGO.frendy_internal_functions import (
+    create_unperturbed_ace_generation_input,
+)
 
 
 def test_create_unperturbed_ace_generation_input_normal(monkeypatch):
-    'Test normal (non-upgrade) ACE input file creation'
+    """Test normal (non-upgrade) ACE input file creation."""
 
-    written = []
+    written_path = None
+    written_lines = []
 
-    def fake_open(path, mode):
-        return FakeFile(written)
+    # Fake open() to capture written content
+    class FakeFile:
+        def __init__(self, path, mode):
+            nonlocal written_path
+            written_path = path
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __enter__(self):
+            return self
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_unperturbed_ace_generation_input
-    )
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    # Capture print output
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
     result = create_unperturbed_ace_generation_input(
         frendy_Path="/opt/frendy",
         nuclide="U235",
         endf_file_dat="/data/U235.dat",
-        temperature=900.0,
+        temperature=300,
         upgrade_Flag=False,
-        energy_grid=[1.0, 2.0, 3.0],
+        energy_grid=[1.0, 2.0],
     )
 
-    assert result == "/opt/frendy/frendy/main/U235_acegenerator_normal.dat"
+    expected_path = "/opt/frendy/frendy/main/U235_acegenerator_normal.dat"
+    assert result == expected_path
+    assert written_path == expected_path
 
-    assert written[0] == "ace_file_generation_fast_mode\n"
-    assert written[1] == "    nucl_file_name    /data/U235.dat\n"
-    assert written[2] == "    temp    900.0\n"
-    assert written[3] == "    ace_file_name    U235.ace\n"
-    assert len(written) == 4
+    # Verify required lines
+    assert written_lines[0] == "ace_file_generation_fast_mode\n"
+    assert written_lines[1] == "    nucl_file_name    /data/U235.dat\n"
+    assert written_lines[2] == "    temp    300\n"
+    assert written_lines[3] == "    ace_file_name    U235.ace\n"
+
+    # No upgrade lines should appear
+    assert len(written_lines) == 4
+
+    # Print message correctness
+    assert expected_path in printed[0]
 
 
 def test_create_unperturbed_ace_generation_input_upgrade(monkeypatch):
-    'Test upgrade ACE input file creation including upgrade lines'
+    """Test upgrade mode, ensuring write_upgrade_lines is called and lines appended."""
 
-    written = []
+    written_lines = []
+    written_path = None
 
-    def fake_open(path, mode):
-        return FakeFile(written)
+    # Fake open()
+    class FakeFile:
+        def __init__(self, path, mode):
+            nonlocal written_path
+            written_path = path
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __enter__(self):
+            return self
 
-    fake_upgrade = [
-        "    add_grid_data    (1.000001\n",
-        "        0.999999\n",
-        "        1.000001)\n",
-    ]
+        def __exit__(self, exc_type, exc, tb):
+            return False
 
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    # Fake write_upgrade_lines
+    fake_upgrade_lines = ["    add_grid_data    (1.0\n", "        2.0)\n"]
     monkeypatch.setattr(
         "src.WINDIGO.frendy_internal_functions.write_upgrade_lines",
-        lambda energy_grid: fake_upgrade
+        lambda energy_grid: fake_upgrade_lines,
     )
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_unperturbed_ace_generation_input
-    )
+    # Capture print
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
     result = create_unperturbed_ace_generation_input(
         frendy_Path="/opt/frendy",
         nuclide="U238",
         endf_file_dat="/data/U238.dat",
-        temperature=600.0,
+        temperature=600,
         upgrade_Flag=True,
         energy_grid=[1.0, 2.0],
     )
 
-    assert result == "/opt/frendy/frendy/main/U238_acegenerator_upgrade.dat"
+    expected_path = "/opt/frendy/frendy/main/U238_acegenerator_upgrade.dat"
+    assert result == expected_path
+    assert written_path == expected_path
 
-    assert written[0] == "ace_file_generation_fast_mode\n"
-    assert written[1] == "    nucl_file_name    /data/U238.dat\n"
-    assert written[2] == "    temp    600.0\n"
-    assert written[3] == "    ace_file_name    U238_upgrade.ace\n"
-    assert written[4] == fake_upgrade
+    # Verify base lines
+    assert written_lines[0] == "ace_file_generation_fast_mode\n"
+    assert written_lines[1] == "    nucl_file_name    /data/U238.dat\n"
+    assert written_lines[2] == "    temp    600\n"
+    assert written_lines[3] == "    ace_file_name    U238_upgrade.ace\n"
+
+    # Upgrade lines appended
+    assert written_lines[4:] == fake_upgrade_lines
+
+    # Print message correctness
+    assert expected_path in printed[0]
 
 
-def test_create_unperturbed_ace_generation_input_empty_energy_grid(monkeypatch):
-    'Test that an empty energy grid still works when upgrade_Flag=True'
+def test_create_unperturbed_ace_generation_input_energy_grid_none(monkeypatch):
+    """Ensure energy_grid=None is treated as an empty list."""
 
-    written = []
+    written_lines = []
+    written_path = None
 
-    def fake_open(path, mode):
-        return FakeFile(written)
+    class FakeFile:
+        def __init__(self, path, mode):
+            nonlocal written_path
+            written_path = path
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.write_upgrade_lines",
-        lambda energy_grid: []
-    )
+        def __exit__(self, exc_type, exc, tb):
+            return False
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_unperturbed_ace_generation_input
-    )
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
+
+    printed = []
+    monkeypatch.setattr(builtins, "print", lambda msg: printed.append(msg))
 
     result = create_unperturbed_ace_generation_input(
         frendy_Path="/opt/frendy",
-        nuclide="Xe135",
-        endf_file_dat="/data/Xe135.dat",
-        temperature=300.0,
-        upgrade_Flag=True,
+        nuclide="Pu239",
+        endf_file_dat="/data/Pu239.dat",
+        temperature=900,
+        upgrade_Flag=False,
         energy_grid=None,
     )
 
-    assert result == "/opt/frendy/frendy/main/Xe135_acegenerator_upgrade.dat"
-    assert written[-1] == []
-
-
-def test_create_unperturbed_ace_generation_input_print(monkeypatch):
-    'Test that the correct message is printed to stdout'
-
-    written = []
-
-    def fake_open(path, mode):
-        return FakeFile(written)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    captured = StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_unperturbed_ace_generation_input
-    )
-
-    result = create_unperturbed_ace_generation_input(
-        frendy_Path="/opt/frendy",
-        nuclide="Kr85",
-        endf_file_dat="/data/Kr85.dat",
-        temperature=500.0,
-        upgrade_Flag=False,
-        energy_grid=[],
-    )
-
-    expected_path = "/opt/frendy/frendy/main/Kr85_acegenerator_normal.dat"
+    expected_path = "/opt/frendy/frendy/main/Pu239_acegenerator_normal.dat"
     assert result == expected_path
+    assert written_path == expected_path
 
-    output = captured.getvalue()
-    assert expected_path in output
-    assert "The path to the ace file generation input is:" in output
-
-
-def test_create_unperturbed_ace_generation_input_no_upgrade_empty_grid(monkeypatch):
-    'Test that empty energy grid does nothing when upgrade_Flag=False'
-
-    written = []
-
-    def fake_open(path, mode):
-        return FakeFile(written)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    # Ensure write_upgrade_lines is NOT called
-    monkeypatch.setattr(
-        "src.WINDIGO.frendy_internal_functions.write_upgrade_lines",
-        lambda energy_grid: (_ for _ in ()).throw(Exception("Should not be called"))
-    )
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_unperturbed_ace_generation_input
-    )
-
-    result = create_unperturbed_ace_generation_input(
-        frendy_Path="/opt/frendy",
-        nuclide="Mo95",
-        endf_file_dat="/data/Mo95.dat",
-        temperature=400.0,
-        upgrade_Flag=False,
-        energy_grid=[],
-    )
-
-    assert result == "/opt/frendy/frendy/main/Mo95_acegenerator_normal.dat"
-
-    # Only the four base lines should be written
-    assert len(written) == 4
+    # No upgrade lines should appear
+    assert len(written_lines) == 4

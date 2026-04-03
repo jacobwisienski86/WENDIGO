@@ -1,151 +1,71 @@
-"""
-Unit tests for create_random_sampling_ace_execution_file.
-"""
+# tests/test_create_random_sampling_ace_execution_file.py
+# Tests for the function: create_random_sampling_ace_execution_file
 
+import builtins
 import pytest
 
-
-class FakeFile:
-    'Simple context-manager file mock that records written lines'
-
-    def __init__(self, written_dict, path):
-        self.written_dict = written_dict
-        self.path = path
-        self.buffer = []
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.written_dict[self.path] = self.buffer
-        return False
-
-    def writelines(self, lines):
-        self.buffer.extend(lines)
-
-    def close(self):
-        pass
+from src.WINDIGO.frendy_internal_functions import (
+    create_random_sampling_ace_execution_file,
+)
 
 
-def test_create_random_sampling_ace_execution_file_basic(monkeypatch):
-    'Test that the .csh file is created with correct name and contents'
+def test_create_random_sampling_ace_execution_file(monkeypatch):
+    """Test that the .csh execution file is created with correct contents."""
 
-    written = {}
+    written_path = None
+    written_lines = []
 
-    def fake_open(path, mode):
-        return FakeFile(written, path)
+    class FakeFile:
+        def __init__(self, path, mode):
+            nonlocal written_path
+            written_path = path
 
-    monkeypatch.setattr("builtins.open", fake_open)
+        def __enter__(self):
+            return self
 
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_ace_execution_file
-    )
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def writelines(self, lines):
+            written_lines.extend(lines)
+
+        def close(self):
+            pass
+
+    # Patch builtins.open globally
+    monkeypatch.setattr(builtins, "open", lambda p, m: FakeFile(p, m))
 
     frendy_path = "/opt/frendy"
-    ace_dir = "/opt/frendy/U235_RSACE"
+    ace_dir = "/opt/frendy/U235_RandomSamplingACEFiles_ReactionMT_102"
     nuclide = "U235"
     mt = 102
-    unperturbed = "/data/U235.ace"
+    unperturbed_ace = "/data/U235.ace"
 
     result = create_random_sampling_ace_execution_file(
         frendy_Path=frendy_path,
         ace_files_directory=ace_dir,
         nuclide=nuclide,
         mt_Number=mt,
-        unperturbed_ACE_file_path=unperturbed,
+        unperturbed_ACE_file_path=unperturbed_ace,
     )
 
-    assert result == "run_create_perturbed_ace_file.csh"
-    assert result in written
+    expected_filename = "run_create_perturbed_ace_file.csh"
+    assert result == expected_filename
+    assert written_path == expected_filename
 
-    lines = written[result]
+    expected_lines = [
+        "#!/bin/csh\n",
+        "\n",
+        f"set EXE     = {frendy_path}/tools/perturbation_ace_file/perturbation_ace_file.exe",
+        "\n",
+        f"set INP     = {ace_dir}/perturbation_list_{nuclide}_MT_{mt}.inp",
+        "\n",
+        f"set ACE     = {unperturbed_ace}",
+        "\n",
+        "set LOG = results.log\n",
+        'echo "${EXE}  ${ACE}  ${INP}"      > ${LOG}\n',
+        'echo ""                           >> ${LOG}\n',
+        '${EXE}  ${ACE}  ${INP} >> ${LOG}\n',
+    ]
 
-    # Shebang + blank line
-    assert lines[0] == "#!/bin/csh\n"
-    assert lines[1] == "\n"
-
-    # EXE line
-    exe_expected = (
-        f"set EXE     = {frendy_path}/tools/perturbation_ace_file/perturbation_ace_file.exe"
-    )
-    assert lines[2] == exe_expected
-    assert lines[3] == "\n"
-
-    # INP line
-    inp_expected = (
-        f"set INP     = {ace_dir}/perturbation_list_{nuclide}_MT_{mt}.inp"
-    )
-    assert lines[4] == inp_expected
-    assert lines[5] == "\n"
-
-    # ACE line
-    assert lines[6] == f"set ACE     = {unperturbed}"
-    assert lines[7] == "\n"
-
-    # Log + echo + run lines
-    assert lines[8] == "set LOG = results.log\n"
-    assert lines[9] == 'echo "${EXE}  ${ACE}  ${INP}"      > ${LOG}\n'
-    assert lines[10] == 'echo ""                           >> ${LOG}\n'
-    assert lines[11] == '${EXE}  ${ACE}  ${INP} >> ${LOG}\n'
-
-
-def test_create_random_sampling_ace_execution_file_varied_inputs(monkeypatch):
-    'Test that arbitrary paths and nuclide names are inserted correctly'
-
-    written = {}
-
-    def fake_open(path, mode):
-        return FakeFile(written, path)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_ace_execution_file
-    )
-
-    frendy_path = "/FRENDY"
-    ace_dir = "/FRENDY/Xe135_RSACE"
-    nuclide = "Xe135"
-    mt = 51
-    unperturbed = "/tmp/Xe135.ace"
-
-    result = create_random_sampling_ace_execution_file(
-        frendy_Path=frendy_path,
-        ace_files_directory=ace_dir,
-        nuclide=nuclide,
-        mt_Number=mt,
-        unperturbed_ACE_file_path=unperturbed,
-    )
-
-    lines = written[result]
-
-    assert f"set EXE     = {frendy_path}/tools/perturbation_ace_file/perturbation_ace_file.exe" == lines[2]
-    assert f"set INP     = {ace_dir}/perturbation_list_{nuclide}_MT_{mt}.inp" == lines[4]
-    assert f"set ACE     = {unperturbed}" == lines[6]
-
-
-def test_create_random_sampling_ace_execution_file_line_count(monkeypatch):
-    'Test that the script always contains exactly 12 lines'
-
-    written = {}
-
-    def fake_open(path, mode):
-        return FakeFile(written, path)
-
-    monkeypatch.setattr("builtins.open", fake_open)
-
-    from src.WINDIGO.frendy_internal_functions import (
-        create_random_sampling_ace_execution_file
-    )
-
-    create_random_sampling_ace_execution_file(
-        frendy_Path="/x",
-        ace_files_directory="/y",
-        nuclide="Mo95",
-        mt_Number=18,
-        unperturbed_ACE_file_path="/z",
-    )
-
-    lines = written["run_create_perturbed_ace_file.csh"]
-
-    assert len(lines) == 12
+    assert written_lines == expected_lines
