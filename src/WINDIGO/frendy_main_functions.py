@@ -297,6 +297,19 @@ def generate_random_sampling_ace_files(
         f"{random_sampling_tool_directory}/make_perturbation_factor.exe"
     )
 
+    # Move the covariance matrix if needed
+    if random_sampling_tool_directory not in relative_covariance_matrix_path:
+        relative_covariance_matrix_path_old = relative_covariance_matrix_path
+        relative_covariance_matrix_path = (
+            random_sampling_tool_directory
+            + '/'
+            + relative_covariance_matrix_path
+        )
+        shutil.move(
+            relative_covariance_matrix_path_old,
+            relative_covariance_matrix_path
+        )
+
     os.chdir(random_sampling_tool_directory)
 
     # Create execution file for random sampling tool
