@@ -12,9 +12,9 @@ from .openmc_internal_functions import (
 def build_perturbed_cross_sections_libraries(
     unperturbed_nuclide_list,
     neutron_sublibrary_path,
-    unperturbed_TSL_list,
-    thermal_scatter_sublibrary_path,
     perturbed_ACE_folder_path,
+    unperturbed_TSL_list = [],
+    thermal_scatter_sublibrary_path = '',
     perturbed_nuclide='',
     model_name='',
     perturbation_type=''
@@ -31,14 +31,14 @@ def build_perturbed_cross_sections_libraries(
     neutron_sublibrary_path : str
         Path to directory containing unperturbed neutron .h5 files.
 
-    unperturbed_TSL_list : list of str
-        Names of thermal scattering libraries to include.
-
-    thermal_scatter_sublibrary_path : str
-        Path to directory containing unperturbed thermal scattering .h5 files.
-
     perturbed_ACE_folder_path : str
         Path to directory containing folders with perturbed ACE files.
+
+    unperturbed_TSL_list : list of str, optional
+        Names of thermal scattering libraries to include.
+
+    thermal_scatter_sublibrary_path : str, optional
+        Path to directory containing unperturbed thermal scattering .h5 files.
 
     perturbed_nuclide : str, optional
         Name of the nuclide being perturbed. Used only for naming folders.
