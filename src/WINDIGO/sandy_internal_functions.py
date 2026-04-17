@@ -73,6 +73,9 @@ def retrieve_covariance_data(
 
     data_library : str
         Name of the data library to retrieve covariance data from.
+        Known options for the current stable release of SANDY include:
+        endfb_80, endfb_71, irdff_2, jeff_311, jeff_32, jeff_33,
+        jendl_40u, and tendl_2023
 
     nuclide_number : int
         ZZZAAA number of the nuclide.
