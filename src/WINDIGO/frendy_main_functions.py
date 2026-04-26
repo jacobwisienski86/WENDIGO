@@ -28,7 +28,8 @@ def generate_unperturbed_neutron_ace_file(
     nuclide,
     upgrade_Flag=False,
     energy_grid=None,
-    cleanup_Flag=True
+    cleanup_Flag=True,
+    verbosity_Flag=False
 ):
     """
     Generate unperturbed neutron cross section ACE files for use in the
@@ -57,6 +58,9 @@ def generate_unperturbed_neutron_ace_file(
     cleanup_Flag : bool, optional
         Delete intermediate files if True.
 
+    verbosity_Flag: bool, optional
+        Suppress terminal output for ACE file creation if True.
+
     Returns
     -------
     str
@@ -75,7 +79,8 @@ def generate_unperturbed_neutron_ace_file(
         endf_file_dat=endf_file_dat,
         temperature=temperature,
         upgrade_Flag=upgrade_Flag,
-        energy_grid=energy_grid
+        energy_grid=energy_grid,
+        verbosity_Flag=verbosity_Flag
     )
 
     # Build command and switch directories
@@ -296,19 +301,6 @@ def generate_random_sampling_ace_files(
     executable_directory = (
         f"{random_sampling_tool_directory}/make_perturbation_factor.exe"
     )
-
-    # Move the covariance matrix if needed
-    if random_sampling_tool_directory not in relative_covariance_matrix_path:
-        relative_covariance_matrix_path_old = relative_covariance_matrix_path
-        relative_covariance_matrix_path = (
-            random_sampling_tool_directory
-            + '/'
-            + relative_covariance_matrix_path
-        )
-        shutil.move(
-            relative_covariance_matrix_path_old,
-            relative_covariance_matrix_path
-        )
 
     os.chdir(random_sampling_tool_directory)
 
