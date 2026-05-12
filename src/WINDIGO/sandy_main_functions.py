@@ -1,4 +1,4 @@
-# Main functions related to Sandy to be used with WENDIGO
+# Main functions related to SANDY to be used with WINDIGO
 
 # Import internal functions
 from .sandy_internal_functions import (

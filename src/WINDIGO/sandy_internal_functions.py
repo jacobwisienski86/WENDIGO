@@ -1,4 +1,4 @@
-# Internal functions for Sandy used in the uncertainty quantification workflow.
+# Internal functions involving SANDY for WINDIGO.
 # These functions are not intended to be called directly by users.
 
 import os
