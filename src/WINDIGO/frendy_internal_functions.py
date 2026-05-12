@@ -1,5 +1,5 @@
-# Internal functions involving FRENDY related to the uncertainty
-# quantification workflow. Not intended to be called directly.
+# Internal functions involving FRENDY for WINDIGO.
+# Not intended to be called directly by users.
 
 import shutil
 import os
@@ -95,7 +95,6 @@ def create_unperturbed_ace_generation_input(
     temperature,
     upgrade_Flag=False,
     energy_grid=None,
-    verbosity_Flag = False
 ):
     """
     Write the input file used to generate unperturbed ACE files.
@@ -120,9 +119,6 @@ def create_unperturbed_ace_generation_input(
 
     energy_grid : list or ndarray, optional
         Energy grid used for perturbation bounds [eV].
-
-    verbosity_Flag: bool, optional
-        Suppress terminal output for ACE file creation if True.
 
     Returns
     -------
@@ -168,17 +164,6 @@ def create_unperturbed_ace_generation_input(
     if upgrade_Flag:
         upgrade_lines = write_upgrade_lines(energy_grid=energy_grid)
         ace_file_lines.extend(upgrade_lines)
-    
-    # Add a flag to remove a portion of terminal output if desired
-    if verbosity_Flag:
-        main_verbosity_line = 'print_set_data_ace_data_generator    off\n'
-        ace_file_lines.append(main_verbosity_line)
-
-        resonance_verbosity_line = 'print_set_data_linearize    off\n'
-        ace_file_lines.append(resonance_verbosity_line)
-
-        doppler_verbosity_line = 'print_set_data_dop    off\n'
-        ace_file_lines.append(doppler_verbosity_line)
 
     # Write file
     with open(ace_file_gen_input_filename, "w") as file:
